@@ -2110,3 +2110,445 @@ input:checked + .switch-slider:before {
   border-radius: 20px;
 }
 
+/* =========================================================
+   SUPERPODERES E MODO ADMINISTRADOR (ACESSO TOTAL)
+   ========================================================= */
+
+/* Botão de Acesso Direto de Admin na Tela de Login */
+.btn-admin-direct-login {
+  width: 100%;
+  margin-top: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: #fef08a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-admin-direct-login:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: #f59e0b;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
+}
+
+/* Chip Dourado de Administrador nos chips rápidos de login */
+.user-chip-btn.is-admin-chip {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(16, 185, 129, 0.2));
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+.user-chip-btn.is-admin-chip:hover {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+/* Barra Master do Administrador (Fixada no Topo do App) */
+.admin-master-bar {
+  background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%);
+  border-bottom: 2px solid #eab308;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  animation: slideDown 0.3s ease-out;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.admin-master-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-master-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-crown-icon {
+  font-size: 1.4rem;
+  filter: drop-shadow(0 2px 6px rgba(234, 179, 8, 0.4));
+}
+
+.admin-master-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-master-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: #fef08a;
+  text-transform: uppercase;
+}
+
+.admin-master-sub {
+  font-size: 0.68rem;
+  color: #a7f3d0;
+  font-weight: 600;
+}
+
+.admin-master-quick-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-admin-pill-action {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.btn-admin-pill-action:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-admin-pill-action.highlight {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #0f172a;
+}
+
+.btn-admin-pill-action.highlight:hover {
+  background: #fbbf24;
+}
+
+/* Seletor de Impersonate / Alternância de Identidade */
+.admin-master-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-switcher-label {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-switcher-select {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+}
+
+.admin-switcher-select:focus {
+  border-color: #f59e0b;
+}
+
+/* Botões do Modal de Autenticação */
+.admin-auth-actions-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-admin-login-app {
+  background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #fef08a;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-admin-login-app:hover {
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4);
+}
+
+/* Botão de Excluir Post Direto no Feed */
+.btn-feed-del-post {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  border-radius: var(--radius-full);
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-feed-del-post:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Ações Rápidas do Administrador em cada Linha do Ranking */
+.ranking-row-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(226, 232, 240, 0.8);
+  width: 100%;
+}
+
+.btn-adm-mini-act {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-xs);
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s;
+}
+
+.btn-adm-mini-act:hover {
+  background: #ffffff;
+  border-color: #94a3b8;
+}
+
+.btn-adm-mini-act.weight:hover {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.btn-adm-mini-act.edit:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.btn-adm-mini-act.reset:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+/* Painel Executivo do Administrador na Aba Meu Perfil */
+.admin-exec-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-exec-hero {
+  background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  color: white;
+  border: 2px solid rgba(234, 179, 8, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-exec-hero::after {
+  content: "👑";
+  position: absolute;
+  right: -10px;
+  bottom: -20px;
+  font-size: 6rem;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.admin-exec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #fef08a;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.admin-exec-hero h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.admin-exec-hero p {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.admin-metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-metric-card .metric-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.admin-metric-card .metric-val {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--text-main);
+}
+
+.admin-metric-card .metric-val.green {
+  color: var(--primary);
+}
+
+.admin-metric-card .metric-val.gold {
+  color: #d97706;
+}
+
+.admin-metric-card .metric-sub {
+  font-size: 0.68rem;
+  color: var(--text-light);
+}
+
+.admin-actions-menu-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-subtle);
+}
+
+.admin-actions-menu-card h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-quick-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-quick-link-btn {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-quick-link-btn:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateX(3px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.admin-quick-link-btn.primary {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.08), rgba(16, 185, 129, 0.12));
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #065f46;
+}
+
+.admin-quick-link-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.15), rgba(16, 185, 129, 0.2));
+  border-color: #10b981;
+}
+
+.admin-quick-link-icon-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-quick-link-icon {
+  font-size: 1.1rem;
+}
+

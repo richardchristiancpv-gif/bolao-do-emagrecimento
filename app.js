@@ -61,17 +61,20 @@ class BolaoApp {
   constructor() {
     this.participants = this.loadParticipants();
     this.posts = this.loadPosts();
+    this.adminPassword = localStorage.getItem('bolao_admin_pass') || 'admin123';
     this.currentUserId = localStorage.getItem('bolao_current_user_id') || null;
     this.privacyMode = JSON.parse(localStorage.getItem('bolao_privacy') || 'false');
     this.pendingFirstAccessUser = null;
+    this.impersonatedUserId = null;
+    this.selectedProfileUserId = null;
 
     this.cacheElements();
     this.bindEvents();
     this.renderQuickLoginChips();
     this.initSupabase();
 
-    // Verifica estado de autenticação
-    if (this.currentUserId && this.getParticipantById(this.currentUserId)) {
+    // Verifica estado de autenticação (aceita participante cadastrado ou o próprio administrador)
+    if (this.currentUserId === 'admin' || (this.currentUserId && this.getParticipantById(this.currentUserId))) {
       this.showMainApp();
     } else {
       this.showAuthScreen();
@@ -131,7 +134,30 @@ class BolaoApp {
   }
 
   getCurrentUser() {
+    if (this.impersonatedUserId) {
+      return this.getParticipantById(this.impersonatedUserId) || this.getAdminVirtualUser();
+    }
+    if (this.currentUserId === 'admin') {
+      return this.getAdminVirtualUser();
+    }
     return this.getParticipantById(this.currentUserId);
+  }
+
+  getAdminVirtualUser() {
+    return {
+      id: 'admin',
+      username: 'admin',
+      name: 'Administrador',
+      isVip: true,
+      isAdmin: true,
+      initialWeight: 0,
+      currentWeight: 0,
+      history: []
+    };
+  }
+
+  isActualAdmin() {
+    return this.currentUserId === 'admin';
   }
 
   // ================= SUPABASE CLIENT & REALTIME =================
@@ -390,6 +416,15 @@ class BolaoApp {
     this.editParticipantName = document.getElementById('edit-participant-name');
     this.editParticipantInitialWeight = document.getElementById('edit-participant-initial-weight');
 
+    // Superpoderes & Barra Master do Administrador
+    this.btnQuickAdminLogin = document.getElementById('btn-quick-admin-login');
+    this.btnAdminAuthEnterApp = document.getElementById('btn-admin-auth-enter-app');
+    this.adminMasterBar = document.getElementById('admin-master-bar');
+    this.adminImpersonateSelect = document.getElementById('admin-impersonate-select');
+    this.btnAdminBarOpenPanel = document.getElementById('btn-admin-bar-open-panel');
+    this.btnAdminBarOpenWeight = document.getElementById('btn-admin-bar-open-weight');
+    this.postAdminAuthorSelect = document.getElementById('post-admin-author-select');
+
     // Data padrão de hoje
     const today = new Date().toISOString().split('T')[0];
     this.weightInputDate.value = today;
@@ -399,6 +434,27 @@ class BolaoApp {
   bindEvents() {
     // Form de Login
     this.formLogin.addEventListener('submit', (e) => this.handleLogin(e));
+
+    // Botão de Login Direto como Admin
+    if (this.btnQuickAdminLogin) {
+      this.btnQuickAdminLogin.addEventListener('click', () => this.quickLoginAdmin());
+    }
+
+    // Botão de Acessar App com Acesso Total pelo Modal de Admin
+    if (this.btnAdminAuthEnterApp) {
+      this.btnAdminAuthEnterApp.addEventListener('click', () => this.handleAdminAuthEnterApp());
+    }
+
+    // Barra Master do Administrador
+    if (this.adminImpersonateSelect) {
+      this.adminImpersonateSelect.addEventListener('change', (e) => this.handleImpersonateChange(e.target.value));
+    }
+    if (this.btnAdminBarOpenPanel) {
+      this.btnAdminBarOpenPanel.addEventListener('click', () => this.openAdminPanel());
+    }
+    if (this.btnAdminBarOpenWeight) {
+      this.btnAdminBarOpenWeight.addEventListener('click', () => this.openWeightModal());
+    }
 
     // Admin Listeners
     if (this.btnOpenAdmin) this.btnOpenAdmin.addEventListener('click', () => this.openAdminAuth());
@@ -504,15 +560,27 @@ class BolaoApp {
 
   // ================= SISTEMA DE LOGIN & AUTH =================
   renderQuickLoginChips() {
-    this.quickUserChips.innerHTML = this.participants.map(p => `
+    const adminChip = `
+      <button type="button" class="user-chip-btn is-admin-chip" onclick="app.quickFillLogin('admin')">
+        <span>👑 Admin</span>
+      </button>
+    `;
+    const participantsChips = this.participants.map(p => `
       <button type="button" class="user-chip-btn ${p.isVip ? 'is-vip' : ''}" onclick="app.quickFillLogin('${p.username}')">
         <span>${p.name}</span>
         ${p.isVip ? '⭐' : ''}
       </button>
     `).join('');
+    this.quickUserChips.innerHTML = adminChip + participantsChips;
   }
 
   quickFillLogin(username) {
+    if (username === 'admin') {
+      this.loginUsername.value = 'admin';
+      this.loginPassword.value = this.adminPassword;
+      this.loginErrorMsg.style.display = 'none';
+      return;
+    }
     this.loginUsername.value = username;
     const user = this.getParticipantByUsername(username);
     if (user) {
@@ -523,10 +591,37 @@ class BolaoApp {
     this.loginErrorMsg.style.display = 'none';
   }
 
+  quickLoginAdmin() {
+    this.quickFillLogin('admin');
+    this.authenticateAdmin();
+  }
+
+  handleAdminAuthEnterApp() {
+    const entered = this.inputAdminPass.value.trim();
+    if (entered === this.adminPassword) {
+      this.closeAdminAuth();
+      this.authenticateAdmin();
+    } else {
+      this.adminAuthErrorMsg.textContent = 'Senha mestre incorreta. (Padrão inicial: admin123)';
+      this.adminAuthErrorMsg.style.display = 'block';
+    }
+  }
+
   handleLogin(e) {
     e.preventDefault();
-    const username = this.loginUsername.value.trim();
+    const username = this.loginUsername.value.trim().toLowerCase();
     const password = this.loginPassword.value.trim();
+
+    // Verificação de Administrador (Superusuário Master)
+    if (username === 'admin' || username === 'administrador') {
+      if (password === this.adminPassword) {
+        this.authenticateAdmin();
+        return;
+      } else {
+        this.showLoginError('Senha mestre de administrador incorreta.');
+        return;
+      }
+    }
 
     const user = this.getParticipantByUsername(username);
     if (!user) {
@@ -600,12 +695,25 @@ class BolaoApp {
 
   authenticateUser(userId) {
     this.currentUserId = userId;
+    this.impersonatedUserId = null;
+    this.selectedProfileUserId = null;
     localStorage.setItem('bolao_current_user_id', userId);
     this.showMainApp();
   }
 
+  authenticateAdmin() {
+    this.currentUserId = 'admin';
+    this.impersonatedUserId = null;
+    this.selectedProfileUserId = null;
+    localStorage.setItem('bolao_current_user_id', 'admin');
+    this.showMainApp();
+    this.showToast('Acesso Total Liberado! 👑', 'Você está conectado no Modo Administrador com superpoderes.', '⚡');
+  }
+
   handleLogout() {
     this.currentUserId = null;
+    this.impersonatedUserId = null;
+    this.selectedProfileUserId = null;
     localStorage.removeItem('bolao_current_user_id');
     this.showAuthScreen();
   }
@@ -627,11 +735,66 @@ class BolaoApp {
   }
 
   updateUserHeader() {
+    if (this.isActualAdmin()) {
+      if (this.adminMasterBar) {
+        this.adminMasterBar.classList.remove('hidden');
+        this.populateAdminImpersonateSelect();
+      }
+
+      if (this.impersonatedUserId) {
+        const imp = this.getParticipantById(this.impersonatedUserId);
+        if (imp) {
+          this.headerUserAvatar.textContent = imp.name.charAt(0);
+          this.headerUserName.textContent = `${imp.name} (Admin 👁️)`;
+          this.headerUserRole.textContent = 'Operando como Participante';
+          return;
+        }
+      }
+
+      this.headerUserAvatar.textContent = '👑';
+      this.headerUserName.textContent = 'Administrador';
+      this.headerUserRole.textContent = 'Acesso Total Master ⚡';
+      return;
+    }
+
+    if (this.adminMasterBar) {
+      this.adminMasterBar.classList.add('hidden');
+    }
+
     const user = this.getCurrentUser();
     if (!user) return;
     this.headerUserAvatar.textContent = user.name.charAt(0);
     this.headerUserName.textContent = user.name;
     this.headerUserRole.textContent = user.isVip ? 'Participante VIP ⭐' : 'Participante Oficial';
+  }
+
+  populateAdminImpersonateSelect() {
+    if (!this.adminImpersonateSelect) return;
+    const sorted = [...this.participants].sort((a, b) => a.name.localeCompare(b.name));
+    let options = '<option value="admin">👑 Administrador (Acesso Total Master)</option>';
+    sorted.forEach(p => {
+      const isSel = this.impersonatedUserId === p.id;
+      options += `<option value="${p.id}" ${isSel ? 'selected' : ''}>👤 ${p.name} ${p.isVip ? '⭐' : ''}</option>`;
+    });
+    this.adminImpersonateSelect.innerHTML = options;
+    if (!this.impersonatedUserId) {
+      this.adminImpersonateSelect.value = 'admin';
+    }
+  }
+
+  handleImpersonateChange(val) {
+    if (val === 'admin') {
+      this.impersonatedUserId = null;
+      this.selectedProfileUserId = null;
+      this.showToast('Visão Master Restaurada 👑', 'Você voltou a operar como Administrador Central.');
+    } else {
+      this.impersonatedUserId = val;
+      this.selectedProfileUserId = val;
+      const p = this.getParticipantById(val);
+      this.showToast(`Navegando como ${p ? p.name : val} 👁️`, 'Você está visualizando a experiência deste participante.');
+    }
+    this.updateUserHeader();
+    this.updateAllViews();
   }
 
   // ================= NAVEGAÇÃO =================
@@ -691,6 +854,7 @@ class BolaoApp {
   renderRanking() {
     const sorted = this.getSortedParticipants();
     const currentUser = this.getCurrentUser();
+    const isAdmin = this.isActualAdmin();
 
     // 1. Pódio Top 3
     const top3 = sorted.slice(0, 3);
@@ -699,7 +863,7 @@ class BolaoApp {
 
     let podiumHtml = '';
     top3.forEach((p, idx) => {
-      const weightDisplay = this.privacyMode 
+      const weightDisplay = (!isAdmin && this.privacyMode) 
         ? (p.diffKg > 0 ? `-${p.diffKg.toFixed(1)} kg` : '0 kg')
         : `${p.currentWeight.toFixed(1)} kg`;
 
@@ -720,8 +884,8 @@ class BolaoApp {
     sorted.forEach((p, idx) => {
       const pos = idx + 1;
       const isMe = currentUser && currentUser.id === p.id;
-      const initialDisplay = this.privacyMode ? 'Protegido' : `${p.initialWeight.toFixed(1)} kg`;
-      const currentDisplay = this.privacyMode ? 'Protegido' : `${p.currentWeight.toFixed(1)} kg`;
+      const initialDisplay = (!isAdmin && this.privacyMode) ? 'Protegido' : `${p.initialWeight.toFixed(1)} kg`;
+      const currentDisplay = (!isAdmin && this.privacyMode) ? 'Protegido' : `${p.currentWeight.toFixed(1)} kg`;
       const isPositiveLoss = p.percentLoss > 0;
       const isNegative = p.percentLoss < 0;
 
@@ -739,6 +903,14 @@ class BolaoApp {
               <span>•</span>
               <span>Atual: ${currentDisplay}</span>
             </div>
+            ${isAdmin ? `
+              <div class="ranking-row-admin-actions">
+                <button type="button" class="btn-adm-mini-act weight" onclick="event.stopPropagation(); app.openWeightModalFor('${p.id}')">⚖️ + Pesagem</button>
+                <button type="button" class="btn-adm-mini-act edit" onclick="event.stopPropagation(); app.openAdminEditModal('${p.id}')">✏️ Editar</button>
+                <button type="button" class="btn-adm-mini-act reset" onclick="event.stopPropagation(); app.adminResetPassword('${p.id}')">🔑 Reset Senha</button>
+                <button type="button" class="btn-adm-mini-act" onclick="event.stopPropagation(); app.goToProfile('${p.id}')">👁️ Perfil</button>
+              </div>
+            ` : ''}
           </div>
           <div class="rank-metrics-col">
             <div class="pct-metric-val ${isNegative ? 'negative' : ''}">
@@ -754,16 +926,38 @@ class BolaoApp {
     this.rankingList.innerHTML = listHtml;
   }
 
+  openWeightModalFor(id) {
+    this.openWeightModal();
+    this.weightParticipantSelect.value = id;
+    this.updateWeightModalHint();
+    setTimeout(() => {
+      this.weightInputValue.focus();
+    }, 200);
+  }
+
   goToProfile(id) {
+    this.selectedProfileUserId = id;
     this.switchTab('tab-profile');
+    this.renderProfile();
+  }
+
+  clearProfileSelection() {
+    this.selectedProfileUserId = null;
+    this.renderProfile();
   }
 
   // ================= FEED (MURAL DE VITÓRIAS) =================
   renderFeed() {
+    const isAdmin = this.isActualAdmin();
     this.feedPosts.innerHTML = this.posts.map(post => {
       const imgUrl = post.customPhoto || PHOTO_PRESETS[post.photoType] || PHOTO_PRESETS.marmita;
       return `
-        <div class="feed-card-item" id="post-${post.id}">
+        <div class="feed-card-item" id="post-${post.id}" style="position: relative;">
+          ${isAdmin ? `
+            <button type="button" class="btn-feed-del-post" title="Excluir publicação (Admin)" onclick="app.adminDeletePost(${post.id})">
+              🗑️ Excluir
+            </button>
+          ` : ''}
           <div class="feed-header-profile">
             <div class="author-circle">${post.authorName.charAt(0)}</div>
             <div>
@@ -809,6 +1003,20 @@ class BolaoApp {
 
   openPostModal() {
     const currentUser = this.getCurrentUser();
+    const isAdmin = this.isActualAdmin();
+
+    if (isAdmin && this.postAdminAuthorSelect) {
+      this.postAdminAuthorSelect.classList.remove('hidden');
+      const sorted = [...this.participants].sort((a, b) => a.name.localeCompare(b.name));
+      let options = '<option value="admin">👑 Administrador (Comunicado Oficial)</option>';
+      sorted.forEach(p => {
+        options += `<option value="${p.id}">👤 Postar como: ${p.name} ${p.isVip ? '⭐' : ''}</option>`;
+      });
+      this.postAdminAuthorSelect.innerHTML = options;
+    } else if (this.postAdminAuthorSelect) {
+      this.postAdminAuthorSelect.classList.add('hidden');
+    }
+
     if (currentUser) {
       this.postingAvatar.textContent = currentUser.name.charAt(0);
       this.postingName.textContent = `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}`;
@@ -829,14 +1037,34 @@ class BolaoApp {
 
   handlePostSubmit(e) {
     e.preventDefault();
-    const currentUser = this.getCurrentUser();
     const caption = this.postTextCaption.value.trim();
     const photoType = document.querySelector('input[name="post-photo-preset"]:checked').value;
+    
+    let authorId = 'anon';
+    let authorName = 'Participante';
+
+    if (this.isActualAdmin() && this.postAdminAuthorSelect && !this.postAdminAuthorSelect.classList.contains('hidden')) {
+      const selected = this.postAdminAuthorSelect.value;
+      if (selected === 'admin') {
+        authorId = 'admin';
+        authorName = 'Administrador 👑';
+      } else {
+        const p = this.getParticipantById(selected);
+        if (p) {
+          authorId = p.id;
+          authorName = `${p.name} ${p.isVip ? '⭐' : ''}`;
+        }
+      }
+    } else {
+      const currentUser = this.getCurrentUser();
+      authorId = currentUser ? currentUser.id : 'anon';
+      authorName = currentUser ? `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}` : 'Participante';
+    }
 
     const newPost = {
       id: Date.now(),
-      authorId: currentUser ? currentUser.id : 'anon',
-      authorName: currentUser ? `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}` : 'Participante',
+      authorId,
+      authorName,
       caption,
       photoType,
       customPhoto: this.customUploadedImage || null,
@@ -849,8 +1077,8 @@ class BolaoApp {
 
     if (this.supabase) {
       this.supabase.from('posts').insert({
-        author_id: currentUser ? currentUser.id : null,
-        author_name: currentUser ? `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}` : 'Participante',
+        author_id: authorId !== 'admin' ? authorId : null,
+        author_name: authorName,
         caption,
         photo_type: photoType,
         photo_url: this.customUploadedImage || null,
@@ -866,20 +1094,52 @@ class BolaoApp {
 
   // ================= MEU PERFIL & EVOLUÇÃO =================
   renderProfile() {
-    const user = this.getCurrentUser();
-    if (!user) return;
+    const isAdmin = this.isActualAdmin();
+
+    // Se é Admin e não está inspecionando nenhum participante específico: exibe o Painel Executivo do Administrador!
+    if (isAdmin && !this.selectedProfileUserId) {
+      this.renderAdminExecutiveProfile();
+      return;
+    }
+
+    // Se selecionou um participante (ou é o usuário participante logado):
+    const targetUserId = this.selectedProfileUserId || this.currentUserId;
+    const user = this.getParticipantById(targetUserId) || this.getCurrentUser();
+    if (!user || user.id === 'admin') {
+      this.renderAdminExecutiveProfile();
+      return;
+    }
 
     const diffKg = Number((user.initialWeight - user.currentWeight).toFixed(2));
     const percentLoss = Number(((diffKg / user.initialWeight) * 100).toFixed(2));
 
-    const initialShow = this.privacyMode ? '***' : `${user.initialWeight.toFixed(1)} kg`;
-    const currentShow = this.privacyMode ? '***' : `${user.currentWeight.toFixed(1)} kg`;
+    const initialShow = (!isAdmin && this.privacyMode) ? '***' : `${user.initialWeight.toFixed(1)} kg`;
+    const currentShow = (!isAdmin && this.privacyMode) ? '***' : `${user.currentWeight.toFixed(1)} kg`;
 
-    // Achar colocação
     const sorted = this.getSortedParticipants();
     const rankPos = sorted.findIndex(p => p.id === user.id) + 1;
 
+    let backBtnHtml = '';
+    if (isAdmin || this.selectedProfileUserId) {
+      backBtnHtml = `
+        <button type="button" class="btn-secondary" style="margin-bottom: 12px; width: 100%;" onclick="app.clearProfileSelection()">
+          ← Voltar ao ${isAdmin ? 'Painel do Administrador' : 'Meu Perfil'}
+        </button>
+      `;
+    }
+
+    let adminActionsHtml = '';
+    if (isAdmin) {
+      adminActionsHtml = `
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button type="button" class="btn-glow-primary full-width" onclick="app.openWeightModalFor('${user.id}')">⚖️ Lançar Pesagem</button>
+          <button type="button" class="btn-secondary full-width" onclick="app.openAdminEditModal('${user.id}')">✏️ Editar</button>
+        </div>
+      `;
+    }
+
     this.profileHeaderCard.innerHTML = `
+      ${backBtnHtml}
       <div class="profile-hero">
         <div class="profile-avatar-lg">${user.name.charAt(0)}</div>
         <div class="profile-hero-meta">
@@ -901,21 +1161,130 @@ class BolaoApp {
           <div class="grid-cell-value highlight-green">${percentLoss > 0 ? '-' : ''}${Math.abs(percentLoss)}%</div>
         </div>
       </div>
+      ${adminActionsHtml}
     `;
 
     // Histórico de Pesagens
-    const reversedHistory = [...user.history].reverse();
+    const reversedHistory = [...(user.history || [])].reverse();
     this.profileHistoryList.innerHTML = reversedHistory.map(h => `
       <div class="history-entry-item">
         <div>
           <div class="history-date">${this.formatDate(h.date)}</div>
           <div class="history-desc">${h.note || 'Pesagem de rotina'}</div>
         </div>
-        <div class="history-weight-val">
-          ${this.privacyMode ? 'Registrado ✓' : `${h.weight.toFixed(1)} kg`}
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="history-weight-val">
+            ${(!isAdmin && this.privacyMode) ? 'Registrado ✓' : `${h.weight.toFixed(1)} kg`}
+          </div>
+          ${isAdmin && !h.note.includes('Oficial de Início') ? `
+            <button type="button" class="btn-icon-del" title="Excluir pesagem (Admin)" onclick="app.adminDeleteWeighin('${user.id}', '${h.date}', ${h.weight})">🗑️</button>
+          ` : ''}
         </div>
       </div>
     `).join('');
+  }
+
+  renderAdminExecutiveProfile() {
+    let totalLostKg = 0;
+    let highestLossPct = 0;
+    let totalWeighins = 0;
+
+    this.participants.forEach(p => {
+      const lost = p.initialWeight - p.currentWeight;
+      if (lost > 0) totalLostKg += lost;
+      const pct = ((p.initialWeight - p.currentWeight) / p.initialWeight) * 100;
+      if (pct > highestLossPct) highestLossPct = pct;
+      if (p.history) totalWeighins += p.history.length;
+    });
+
+    const avgLost = (this.participants.length > 0) ? (totalLostKg / this.participants.length).toFixed(1) : '0.0';
+
+    this.profileHeaderCard.innerHTML = `
+      <div class="admin-exec-dashboard">
+        <div class="admin-exec-hero">
+          <div class="admin-exec-badge">👑 ACESSO TOTAL MASTER</div>
+          <h2>Painel Executivo do Bolão</h2>
+          <p>Visão geral de desempenho do grupo e controle de todas as funções do desafio.</p>
+        </div>
+
+        <div class="admin-metrics-grid">
+          <div class="admin-metric-card">
+            <span class="metric-label">Participantes</span>
+            <span class="metric-val">${this.participants.length}</span>
+            <span class="metric-sub">12 oficiais cadastrados</span>
+          </div>
+
+          <div class="admin-metric-card">
+            <span class="metric-label">Eliminados Juntos</span>
+            <span class="metric-val green">${totalLostKg.toFixed(1)} kg</span>
+            <span class="metric-sub">Média de ${avgLost} kg por pessoa</span>
+          </div>
+
+          <div class="admin-metric-card">
+            <span class="metric-label">Maior Evolução</span>
+            <span class="metric-val gold">${highestLossPct.toFixed(1)}%</span>
+            <span class="metric-sub">Liderança do desafio</span>
+          </div>
+
+          <div class="admin-metric-card">
+            <span class="metric-label">Pesagens Salvas</span>
+            <span class="metric-val">${totalWeighins}</span>
+            <span class="metric-sub">Sincronizadas na nuvem</span>
+          </div>
+        </div>
+
+        <div class="admin-actions-menu-card">
+          <h3>⚡ Ações Rápidas de Gestão</h3>
+          <div class="admin-quick-links-list">
+            <button type="button" class="admin-quick-link-btn primary" onclick="app.openAdminPanel()">
+              <div class="admin-quick-link-icon-text">
+                <span class="admin-quick-link-icon">⚙️</span>
+                <span>Abrir Painel Completo de Administração</span>
+              </div>
+              <span>→</span>
+            </button>
+
+            <button type="button" class="admin-quick-link-btn" onclick="app.switchAdminTab('adm-new'); app.openAdminPanel();">
+              <div class="admin-quick-link-icon-text">
+                <span class="admin-quick-link-icon">➕</span>
+                <span>Cadastrar Novo Participante</span>
+              </div>
+              <span>→</span>
+            </button>
+
+            <button type="button" class="admin-quick-link-btn" onclick="app.openWeightModal()">
+              <div class="admin-quick-link-icon-text">
+                <span class="admin-quick-link-icon">⚖️</span>
+                <span>Lançar Pesagem para Qualquer Colega</span>
+              </div>
+              <span>→</span>
+            </button>
+
+            <button type="button" class="admin-quick-link-btn" onclick="app.shareOnWhatsApp()">
+              <div class="admin-quick-link-icon-text">
+                <span class="admin-quick-link-icon">📲</span>
+                <span>Compartilhar Boletim Oficial no WhatsApp</span>
+              </div>
+              <span>→</span>
+            </button>
+
+            <button type="button" class="admin-quick-link-btn" onclick="app.switchAdminTab('adm-settings'); app.openAdminPanel();">
+              <div class="admin-quick-link-icon-text">
+                <span class="admin-quick-link-icon">🔑</span>
+                <span>Alterar Senha Mestre de Administrador</span>
+              </div>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.profileHistoryList.innerHTML = `
+      <div style="padding: 10px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+        💡 Para ver o histórico detalhado de pesagens de um participante, clique no nome dele na aba <strong>Ranking</strong> ou use a barra superior para <strong>Operar como participante</strong>.
+      </div>
+    `;
   }
 
   handleChangePasswordSubmit(e) {

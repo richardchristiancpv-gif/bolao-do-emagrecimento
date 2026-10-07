@@ -70,13 +70,18 @@
             <span>Entrar no Bolão</span>
             <span class="btn-arrow">→</span>
           </button>
+
+          <button type="button" class="btn-admin-direct-login" id="btn-quick-admin-login">
+            <span>👑</span>
+            <span>Entrar como Administrador (Acesso Total)</span>
+          </button>
         </form>
 
         <!-- Acesso Rápido para Demonstração / Facilidade -->
         <div class="quick-access-box">
           <span class="quick-access-label">Ou escolha seu nome para entrar rápido:</span>
           <div class="quick-user-chips" id="quick-user-chips">
-            <!-- Gerado via JS com os 12 participantes -->
+            <!-- Gerado via JS com os 12 participantes + chip Admin -->
           </div>
         </div>
 
@@ -86,7 +91,7 @@
 
         <div class="auth-admin-access">
           <button type="button" id="btn-login-open-admin" class="btn-admin-access-link">
-            ⚙️ Painel do Administrador
+            ⚙️ Painel de Gestão do Administrador
           </button>
         </div>
       </div>
@@ -147,6 +152,34 @@
           <span class="sparkle">♡</span>
         </div>
       </header>
+
+      <!-- Barra Master de Superpoderes do Administrador (Ativa em modo Admin) -->
+      <div id="admin-master-bar" class="admin-master-bar hidden">
+        <div class="admin-master-top">
+          <div class="admin-master-tag">
+            <span class="admin-crown-icon">👑</span>
+            <div class="admin-master-titles">
+              <span class="admin-master-title">MODO ADMINISTRADOR</span>
+              <span class="admin-master-sub">Acesso Total Liberado</span>
+            </div>
+          </div>
+          <div class="admin-master-quick-btns">
+            <button type="button" class="btn-admin-pill-action" id="btn-admin-bar-open-panel" title="Abrir Painel Admin Completo">
+              ⚙️ Painel
+            </button>
+            <button type="button" class="btn-admin-pill-action highlight" id="btn-admin-bar-open-weight" title="Lançar Pesagem Rápida">
+              ⚖️ + Pesagem
+            </button>
+          </div>
+        </div>
+        <div class="admin-master-switcher">
+          <span class="admin-switcher-label">👁️ Operar / Visualizar como:</span>
+          <select id="admin-impersonate-select" class="admin-switcher-select">
+            <option value="admin" selected>👑 Administrador (Acesso Total Master)</option>
+            <!-- Preenchido dinamicamente via JS com todos os participantes -->
+          </select>
+        </div>
+      </div>
 
       <!-- Conteúdo das Abas -->
       <main class="app-content">
@@ -402,12 +435,17 @@
         </div>
 
         <form id="form-post" class="modal-form">
-          <div class="form-group">
+          <div class="form-group" id="post-author-wrapper">
             <label>Publicando como:</label>
             <div class="posting-as-chip" id="posting-as-chip">
               <span class="avatar-mini" id="posting-avatar">P</span>
               <strong id="posting-name">Panmela ⭐</strong>
             </div>
+            <!-- Seletor exclusivo para quando o administrador estiver postando -->
+            <select id="post-admin-author-select" class="styled-select hidden" style="margin-top: 8px;">
+              <option value="admin">👑 Administrador (Comunicado Oficial)</option>
+              <!-- Preenchido via JS com os participantes caso queira postar por eles -->
+            </select>
           </div>
 
           <div class="form-group">
@@ -528,9 +566,12 @@
             <input type="password" id="input-admin-pass" placeholder="Digite a senha admin" required autofocus>
           </div>
           <div id="admin-auth-error-msg" class="auth-error-msg"></div>
-          <div class="modal-actions-row">
-            <button type="button" class="btn-secondary" id="btn-cancel-admin-auth">Cancelar</button>
-            <button type="submit" class="btn-glow-primary">Entrar no Painel 🚀</button>
+          <div class="modal-actions-row admin-auth-actions-stacked">
+            <button type="submit" class="btn-glow-primary full-width">Abrir Painel de Gestão ⚙️</button>
+            <button type="button" class="btn-admin-login-app full-width" id="btn-admin-auth-enter-app">
+              👑 Acessar Aplicativo com Acesso Total
+            </button>
+            <button type="button" class="btn-secondary full-width" id="btn-cancel-admin-auth">Voltar</button>
           </div>
         </form>
       </div>
