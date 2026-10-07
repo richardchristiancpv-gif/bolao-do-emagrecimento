@@ -358,6 +358,38 @@ class BolaoApp {
     this.canvas = document.getElementById('confetti-canvas');
     this.setupConfetti();
 
+    // Admin Panel
+    this.adminPassword = localStorage.getItem('bolao_admin_pass') || 'admin123';
+    this.btnOpenAdmin = document.getElementById('btn-open-admin');
+    this.btnLoginOpenAdmin = document.getElementById('btn-login-open-admin');
+    this.modalAdminAuth = document.getElementById('modal-admin-auth');
+    this.btnCloseAdminAuth = document.getElementById('btn-close-admin-auth');
+    this.btnCancelAdminAuth = document.getElementById('btn-cancel-admin-auth');
+    this.formAdminAuth = document.getElementById('form-admin-auth');
+    this.inputAdminPass = document.getElementById('input-admin-pass');
+    this.adminAuthErrorMsg = document.getElementById('admin-auth-error-msg');
+
+    this.modalAdminPanel = document.getElementById('modal-admin-panel');
+    this.btnCloseAdminPanel = document.getElementById('btn-close-admin-panel');
+    this.adminTabButtons = document.querySelectorAll('.admin-tab-btn');
+    this.adminTabPanes = document.querySelectorAll('.admin-tab-pane');
+    this.adminParticipantsList = document.getElementById('admin-participants-list');
+    this.adminParticipantsCount = document.getElementById('admin-participants-count');
+    this.btnAdminGoNew = document.getElementById('btn-admin-go-new');
+    this.adminWeighinsList = document.getElementById('admin-weighins-list');
+    this.adminPostsList = document.getElementById('admin-posts-list');
+    this.formAdminAddParticipant = document.getElementById('form-admin-add-participant');
+    this.formAdminChangePass = document.getElementById('form-admin-change-pass');
+    this.admChangePassMsg = document.getElementById('adm-change-pass-msg');
+
+    this.modalAdminEdit = document.getElementById('modal-admin-edit-participant');
+    this.btnCloseAdminEdit = document.getElementById('btn-close-admin-edit');
+    this.btnCancelAdminEdit = document.getElementById('btn-cancel-admin-edit');
+    this.formAdminEdit = document.getElementById('form-admin-edit-participant');
+    this.editParticipantId = document.getElementById('edit-participant-id');
+    this.editParticipantName = document.getElementById('edit-participant-name');
+    this.editParticipantInitialWeight = document.getElementById('edit-participant-initial-weight');
+
     // Data padrão de hoje
     const today = new Date().toISOString().split('T')[0];
     this.weightInputDate.value = today;
@@ -367,6 +399,29 @@ class BolaoApp {
   bindEvents() {
     // Form de Login
     this.formLogin.addEventListener('submit', (e) => this.handleLogin(e));
+
+    // Admin Listeners
+    if (this.btnOpenAdmin) this.btnOpenAdmin.addEventListener('click', () => this.openAdminAuth());
+    if (this.btnLoginOpenAdmin) this.btnLoginOpenAdmin.addEventListener('click', () => this.openAdminAuth());
+    this.btnCloseAdminAuth.addEventListener('click', () => this.closeAdminAuth());
+    this.btnCancelAdminAuth.addEventListener('click', () => this.closeAdminAuth());
+    this.formAdminAuth.addEventListener('submit', (e) => this.handleAdminAuthSubmit(e));
+    this.btnCloseAdminPanel.addEventListener('click', () => this.closeAdminPanel());
+
+    this.adminTabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-admintab');
+        this.switchAdminTab(target);
+      });
+    });
+
+    if (this.btnAdminGoNew) this.btnAdminGoNew.addEventListener('click', () => this.switchAdminTab('adm-new'));
+    this.formAdminAddParticipant.addEventListener('submit', (e) => this.handleAdminAddParticipant(e));
+    this.formAdminChangePass.addEventListener('submit', (e) => this.handleAdminChangePass(e));
+
+    this.btnCloseAdminEdit.addEventListener('click', () => this.closeAdminEditModal());
+    this.btnCancelAdminEdit.addEventListener('click', () => this.closeAdminEditModal());
+    this.formAdminEdit.addEventListener('submit', (e) => this.handleAdminEditSubmit(e));
 
     // Ver/Ocultar Senha Login
     this.btnToggleLoginPass.addEventListener('click', () => {
@@ -1083,6 +1138,342 @@ class BolaoApp {
     } else {
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
     }
+  }
+
+  // ================= PAINEL DO ADMINISTRADOR =================
+  openAdminAuth() {
+    this.inputAdminPass.value = '';
+    this.adminAuthErrorMsg.style.display = 'none';
+    this.modalAdminAuth.classList.add('active');
+  }
+
+  closeAdminAuth() {
+    this.modalAdminAuth.classList.remove('active');
+  }
+
+  handleAdminAuthSubmit(e) {
+    e.preventDefault();
+    const entered = this.inputAdminPass.value.trim();
+    if (entered === this.adminPassword) {
+      this.closeAdminAuth();
+      this.openAdminPanel();
+    } else {
+      this.adminAuthErrorMsg.textContent = 'Senha mestre incorreta. (Padrão inicial: admin123)';
+      this.adminAuthErrorMsg.style.display = 'block';
+    }
+  }
+
+  openAdminPanel() {
+    this.renderAdminAll();
+    this.modalAdminPanel.classList.add('active');
+  }
+
+  closeAdminPanel() {
+    this.modalAdminPanel.classList.remove('active');
+  }
+
+  switchAdminTab(tabId) {
+    this.adminTabButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-admintab') === tabId);
+    });
+    this.adminTabPanes.forEach(pane => {
+      pane.classList.toggle('active', pane.id === tabId);
+    });
+  }
+
+  renderAdminAll() {
+    this.renderAdminParticipants();
+    this.renderAdminWeighins();
+    this.renderAdminPosts();
+  }
+
+  renderAdminParticipants() {
+    this.adminParticipantsCount.textContent = this.participants.length;
+    const sorted = [...this.participants].sort((a, b) => a.name.localeCompare(b.name));
+
+    this.adminParticipantsList.innerHTML = sorted.map(p => `
+      <div class="admin-participant-card" id="adm-p-${p.id}">
+        <div class="admin-card-top">
+          <div class="admin-card-user">
+            <div class="admin-card-avatar">${p.name.charAt(0)}</div>
+            <div>
+              <div class="admin-card-name">${p.name} ${p.isVip ? '⭐ (VIP)' : ''}</div>
+              <div class="admin-card-login">Login: <strong>${p.username}</strong> | 1º Acesso: ${p.mustChangePassword ? 'Pendente' : 'Concluído'}</div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card-weights">
+          <span>Inicial: <strong>${p.initialWeight.toFixed(2)} kg</strong></span>
+          <span>Atual: <strong>${p.currentWeight.toFixed(2)} kg</strong></span>
+          <span>Perda: <strong>${((p.initialWeight - p.currentWeight) / p.initialWeight * 100).toFixed(1)}%</strong></span>
+        </div>
+        <div class="admin-card-actions">
+          <button type="button" class="btn-adm-action edit" onclick="app.openAdminEditModal('${p.id}')">✏️ Editar</button>
+          <button type="button" class="btn-adm-action reset" onclick="app.adminResetPassword('${p.id}')">🔑 Resetar Senha</button>
+          <button type="button" class="btn-adm-action delete" onclick="app.adminDeleteParticipant('${p.id}')">🗑️ Remover</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  renderAdminWeighins() {
+    const allWeighins = [];
+    this.participants.forEach(p => {
+      (p.history || []).forEach((h, idx) => {
+        allWeighins.push({
+          participantId: p.id,
+          participantName: p.name,
+          date: h.date,
+          weight: h.weight,
+          note: h.note,
+          index: idx,
+          isInitial: idx === 0 && h.note && h.note.includes('Início')
+        });
+      });
+    });
+
+    allWeighins.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (allWeighins.length === 0) {
+      this.adminWeighinsList.innerHTML = '<p class="admin-pane-hint">Nenhuma pesagem registrada ainda.</p>';
+      return;
+    }
+
+    this.adminWeighinsList.innerHTML = allWeighins.map((w) => `
+      <div class="admin-weighin-row">
+        <div class="admin-weighin-info">
+          <span class="admin-weighin-name">${w.participantName}</span>
+          <span class="admin-weighin-meta">${this.formatDate(w.date)} • ${w.note || 'Pesagem'}</span>
+        </div>
+        <div class="admin-weighin-right">
+          <span class="admin-weighin-val">${w.weight.toFixed(2)} kg</span>
+          ${!w.isInitial ? `
+            <button type="button" class="btn-icon-del" title="Excluir lançamento incorreto" onclick="app.adminDeleteWeighin('${w.participantId}', '${w.date}', ${w.weight})">🗑️</button>
+          ` : '<span style="font-size:0.68rem; color:#94a3b8;">Largada</span>'}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  renderAdminPosts() {
+    if (this.posts.length === 0) {
+      this.adminPostsList.innerHTML = '<p class="admin-pane-hint">Nenhum post no Mural.</p>';
+      return;
+    }
+
+    this.adminPostsList.innerHTML = this.posts.map(post => {
+      const img = post.customPhoto || PHOTO_PRESETS[post.photoType] || PHOTO_PRESETS.marmita;
+      return `
+        <div class="admin-post-item">
+          <img src="${img}" alt="Thumb" class="admin-post-thumb">
+          <div class="admin-post-info">
+            <div class="admin-post-author">${post.authorName} • <small>${post.timestamp}</small></div>
+            <div class="admin-post-caption">${post.caption}</div>
+          </div>
+          <button type="button" class="btn-icon-del" title="Excluir post" onclick="app.adminDeletePost(${post.id})">🗑️</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  openAdminEditModal(id) {
+    const p = this.getParticipantById(id);
+    if (!p) return;
+    this.editParticipantId.value = p.id;
+    this.editParticipantName.value = p.name;
+    this.editParticipantInitialWeight.value = p.initialWeight;
+    this.modalAdminEdit.classList.add('active');
+  }
+
+  closeAdminEditModal() {
+    this.modalAdminEdit.classList.remove('active');
+  }
+
+  async handleAdminEditSubmit(e) {
+    e.preventDefault();
+    const id = this.editParticipantId.value;
+    const name = this.editParticipantName.value.trim();
+    const initialWeight = parseFloat(this.editParticipantInitialWeight.value);
+
+    const p = this.getParticipantById(id);
+    if (!p) return;
+
+    p.name = name;
+    p.initialWeight = initialWeight;
+    if (p.history && p.history.length > 0) {
+      p.history[0].weight = initialWeight;
+    }
+    this.saveParticipants();
+
+    if (this.supabase) {
+      await this.supabase.from('participants').update({
+        name,
+        initial_weight: initialWeight
+      }).eq('id', id);
+    }
+
+    this.closeAdminEditModal();
+    this.renderAdminAll();
+    this.updateAllViews();
+    this.showToast('Participante Atualizado! ✏️', `Dados de ${name} salvos com sucesso.`);
+  }
+
+  async adminResetPassword(id) {
+    const p = this.getParticipantById(id);
+    if (!p) return;
+    if (!confirm(`Deseja resetar a senha de ${p.name} para 123456 e solicitar troca no próximo login?`)) return;
+
+    p.password = '123456';
+    p.mustChangePassword = true;
+    this.saveParticipants();
+
+    if (this.supabase) {
+      await this.supabase.from('participants').update({
+        password: '123456',
+        must_change_password: true
+      }).eq('id', id);
+    }
+
+    this.renderAdminParticipants();
+    this.showToast('Senha Resetada! 🔑', `Senha de ${p.name} voltou para 123456.`);
+  }
+
+  async adminDeleteParticipant(id) {
+    const p = this.getParticipantById(id);
+    if (!p) return;
+    if (!confirm(`Tem certeza que deseja remover ${p.name} do Bolão? Esta ação apagará todas as pesagens associadas.`)) return;
+
+    this.participants = this.participants.filter(item => item.id !== id);
+    this.saveParticipants();
+
+    if (this.supabase) {
+      await this.supabase.from('participants').delete().eq('id', id);
+    }
+
+    this.renderAdminAll();
+    this.updateAllViews();
+    this.renderQuickLoginChips();
+    this.showToast('Participante Removido 🗑️', `${p.name} foi removido(a) do Bolão.`);
+  }
+
+  async handleAdminAddParticipant(e) {
+    e.preventDefault();
+    const name = document.getElementById('adm-add-name').value.trim();
+    let username = document.getElementById('adm-add-username').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const initialWeight = parseFloat(document.getElementById('adm-add-initial-weight').value);
+    const isVip = document.getElementById('adm-add-is-vip').checked;
+
+    if (!username) username = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (this.getParticipantByUsername(username)) {
+      alert('Já existe um participante com esse usuário.');
+      return;
+    }
+
+    const newParticipant = {
+      id: username,
+      username,
+      name,
+      initialWeight,
+      currentWeight: initialWeight,
+      isVip,
+      password: '123456',
+      mustChangePassword: true,
+      history: [
+        { date: '2026-10-05', weight: initialWeight, note: 'Pesagem Oficial de Início' }
+      ]
+    };
+
+    this.participants.push(newParticipant);
+    this.saveParticipants();
+
+    if (this.supabase) {
+      await this.supabase.from('participants').insert({
+        id: username,
+        username,
+        name,
+        initial_weight: initialWeight,
+        current_weight: initialWeight,
+        is_vip: isVip,
+        password: '123456',
+        must_change_password: true
+      });
+
+      await this.supabase.from('weigh_ins').insert({
+        participant_id: username,
+        weight: initialWeight,
+        date: '2026-10-05',
+        note: 'Pesagem Oficial de Início'
+      });
+    }
+
+    this.formAdminAddParticipant.reset();
+    this.renderAdminAll();
+    this.updateAllViews();
+    this.renderQuickLoginChips();
+    this.switchAdminTab('adm-participants');
+    this.showToast('Participante Adicionado! 👥', `${name} foi cadastrado no Bolão.`);
+  }
+
+  async adminDeleteWeighin(participantId, date, weight) {
+    if (!confirm(`Deseja excluir o registro de ${weight} kg em ${this.formatDate(date)}?`)) return;
+
+    const p = this.getParticipantById(participantId);
+    if (!p) return;
+
+    p.history = p.history.filter(h => !(h.date === date && Number(h.weight) === Number(weight)));
+    if (p.history.length > 0) {
+      p.currentWeight = p.history[p.history.length - 1].weight;
+    } else {
+      p.currentWeight = p.initialWeight;
+    }
+    this.saveParticipants();
+
+    if (this.supabase) {
+      await this.supabase.from('weigh_ins').delete().match({
+        participant_id: participantId,
+        date: date,
+        weight: weight
+      });
+      await this.supabase.from('participants').update({ current_weight: p.currentWeight }).eq('id', participantId);
+    }
+
+    this.renderAdminAll();
+    this.updateAllViews();
+    this.showToast('Lançamento Excluído 🗑️', 'Pesagem removida e ranking recalculado.');
+  }
+
+  async adminDeletePost(postId) {
+    if (!confirm('Deseja excluir este post do Mural?')) return;
+
+    this.posts = this.posts.filter(item => item.id !== postId);
+    this.savePosts();
+
+    if (this.supabase) {
+      await this.supabase.from('posts').delete().eq('id', postId);
+    }
+
+    this.renderAdminPosts();
+    this.renderFeed();
+    this.showToast('Post Removido 🗑️', 'A foto foi removida do Mural.');
+  }
+
+  handleAdminChangePass(e) {
+    e.preventDefault();
+    const current = document.getElementById('adm-current-pass').value.trim();
+    const newPass = document.getElementById('adm-new-pass').value.trim();
+
+    if (current !== this.adminPassword) {
+      this.admChangePassMsg.textContent = 'Senha atual de admin incorreta.';
+      this.admChangePassMsg.style.display = 'block';
+      return;
+    }
+
+    this.adminPassword = newPass;
+    localStorage.setItem('bolao_admin_pass', newPass);
+    this.formAdminChangePass.reset();
+    this.admChangePassMsg.style.display = 'none';
+    this.showToast('Senha de Admin Atualizada! 🔑', 'Nova senha mestre configurada com sucesso.');
   }
 }
 

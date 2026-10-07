@@ -83,6 +83,12 @@
         <div class="auth-footer-note">
           🔒 Cada participante possui acesso individual para registrar pesagens e interagir no Mural.
         </div>
+
+        <div class="auth-admin-access">
+          <button type="button" id="btn-login-open-admin" class="btn-admin-access-link">
+            ⚙️ Painel do Administrador
+          </button>
+        </div>
       </div>
     </div>
 
@@ -101,6 +107,9 @@
           </div>
 
           <div class="header-actions">
+            <button id="btn-open-admin" class="header-icon-btn admin" title="Painel de Administração">
+              ⚙️
+            </button>
             <button id="btn-cloud-sync" class="header-icon-btn cloud-sync" title="Conexão em Nuvem (Supabase)">
               <span id="cloud-sync-icon">☁️</span>
             </button>
@@ -499,6 +508,164 @@
             </div>
           </form>
         </div>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: AUTENTICAÇÃO DO ADMIN ================= -->
+    <div id="modal-admin-auth" class="modal-backdrop">
+      <div class="modal-dialog admin-auth-dialog">
+        <div class="modal-header-row">
+          <h3>Acesso do Administrador ⚙️</h3>
+          <button class="modal-close-btn" id="btn-close-admin-auth">&times;</button>
+        </div>
+        <p class="admin-auth-desc">Digite a senha mestre de administração para gerenciar o Bolão.</p>
+        <form id="form-admin-auth" class="modal-form">
+          <div class="form-group">
+            <div class="field-label-row">
+              <label for="input-admin-pass">Senha Mestre</label>
+              <span class="default-pass-hint">Padrão: <strong>admin123</strong></span>
+            </div>
+            <input type="password" id="input-admin-pass" placeholder="Digite a senha admin" required autofocus>
+          </div>
+          <div id="admin-auth-error-msg" class="auth-error-msg"></div>
+          <div class="modal-actions-row">
+            <button type="button" class="btn-secondary" id="btn-cancel-admin-auth">Cancelar</button>
+            <button type="submit" class="btn-glow-primary">Entrar no Painel 🚀</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: PAINEL DE ADMIN COMPLETO ================= -->
+    <div id="modal-admin-panel" class="modal-backdrop">
+      <div class="modal-dialog admin-panel-dialog">
+        <div class="admin-panel-header">
+          <div>
+            <h3>Painel do Administrador ⚙️</h3>
+            <span class="admin-subtext">Gestão completa de participantes, pesagens e moderação</span>
+          </div>
+          <button class="modal-close-btn" id="btn-close-admin-panel">&times;</button>
+        </div>
+
+        <!-- Abas do Painel de Admin -->
+        <div class="admin-tabs-nav">
+          <button type="button" class="admin-tab-btn active" data-admintab="adm-participants">👥 Participantes</button>
+          <button type="button" class="admin-tab-btn" data-admintab="adm-weighins">⚖️ Pesagens</button>
+          <button type="button" class="admin-tab-btn" data-admintab="adm-posts">📸 Mural</button>
+          <button type="button" class="admin-tab-btn" data-admintab="adm-new">➕ Novo</button>
+          <button type="button" class="admin-tab-btn" data-admintab="adm-settings">🔑 Senha</button>
+        </div>
+
+        <div class="admin-tab-content-area">
+          
+          <!-- SUB-ABA 1: PARTICIPANTES -->
+          <div id="adm-participants" class="admin-tab-pane active">
+            <div class="admin-pane-header">
+              <h4>Participantes Cadastrados (<span id="admin-participants-count">12</span>)</h4>
+              <button type="button" class="btn-mini-primary" id="btn-admin-go-new">➕ Adicionar</button>
+            </div>
+            <div id="admin-participants-list" class="admin-cards-list">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- SUB-ABA 2: PESAGENS -->
+          <div id="adm-weighins" class="admin-tab-pane">
+            <div class="admin-pane-header">
+              <h4>Histórico de Pesagens</h4>
+              <small class="admin-pane-hint">Exclua lançamentos digitados incorretamente</small>
+            </div>
+            <div id="admin-weighins-list" class="admin-table-container">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- SUB-ABA 3: MURAL DE VITÓRIAS -->
+          <div id="adm-posts" class="admin-tab-pane">
+            <div class="admin-pane-header">
+              <h4>Moderar Fotos & Posts do Mural</h4>
+              <small class="admin-pane-hint">Remova postagens indevidas ou de teste</small>
+            </div>
+            <div id="admin-posts-list" class="admin-posts-grid">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- SUB-ABA 4: NOVO PARTICIPANTE -->
+          <div id="adm-new" class="admin-tab-pane">
+            <div class="admin-pane-header">
+              <h4>Adicionar Novo Participante</h4>
+            </div>
+            <form id="form-admin-add-participant" class="modal-form admin-form-box">
+              <div class="form-group">
+                <label for="adm-add-name">Nome Completo / Exibição:</label>
+                <input type="text" id="adm-add-name" placeholder="Ex: Roberto Silva" required>
+              </div>
+              <div class="form-group">
+                <label for="adm-add-username">Usuário de Login (minúsculas, sem espaços):</label>
+                <input type="text" id="adm-add-username" placeholder="Ex: roberto" required>
+              </div>
+              <div class="form-group">
+                <label for="adm-add-initial-weight">Peso Inicial no Início do Bolão (kg):</label>
+                <input type="number" id="adm-add-initial-weight" step="0.05" min="40" max="250" placeholder="Ex: 85.50" required>
+              </div>
+              <div class="form-group checkbox-group">
+                <label class="switch-ui">
+                  <input type="checkbox" id="adm-add-is-vip">
+                  <span class="switch-slider"></span>
+                  <span class="switch-caption">Destaque VIP (Estrela ⭐)</span>
+                </label>
+              </div>
+              <button type="submit" class="btn-glow-primary full-width">Salvar Novo Participante no Supabase 🚀</button>
+            </form>
+          </div>
+
+          <!-- SUB-ABA 5: SEGURANÇA ADMIN -->
+          <div id="adm-settings" class="admin-tab-pane">
+            <div class="admin-pane-header">
+              <h4>Alterar Senha do Administrador</h4>
+            </div>
+            <form id="form-admin-change-pass" class="modal-form admin-form-box">
+              <div class="form-group">
+                <label for="adm-current-pass">Senha Atual do Admin:</label>
+                <input type="password" id="adm-current-pass" required>
+              </div>
+              <div class="form-group">
+                <label for="adm-new-pass">Nova Senha do Admin:</label>
+                <input type="password" id="adm-new-pass" minlength="4" required>
+              </div>
+              <div id="adm-change-pass-msg" class="auth-error-msg"></div>
+              <button type="submit" class="btn-glow-primary full-width">Atualizar Senha Mestre</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: EDITAR PARTICIPANTE ================= -->
+    <div id="modal-admin-edit-participant" class="modal-backdrop">
+      <div class="modal-dialog admin-edit-dialog">
+        <div class="modal-header-row">
+          <h3>Editar Participante ✏️</h3>
+          <button class="modal-close-btn" id="btn-close-admin-edit">&times;</button>
+        </div>
+        <form id="form-admin-edit-participant" class="modal-form">
+          <input type="hidden" id="edit-participant-id">
+          <div class="form-group">
+            <label for="edit-participant-name">Nome:</label>
+            <input type="text" id="edit-participant-name" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-participant-initial-weight">Peso Inicial Oficial (kg):</label>
+            <input type="number" id="edit-participant-initial-weight" step="0.05" min="40" max="250" required>
+            <small class="helper-text">Alterar o peso inicial recalculará todas as porcentagens do bolão.</small>
+          </div>
+          <div class="modal-actions-row">
+            <button type="button" class="btn-secondary" id="btn-cancel-admin-edit">Cancelar</button>
+            <button type="submit" class="btn-glow-primary">Salvar Alterações</button>
+          </div>
+        </form>
       </div>
     </div>
 
