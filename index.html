@@ -101,6 +101,9 @@
           </div>
 
           <div class="header-actions">
+            <button id="btn-cloud-sync" class="header-icon-btn cloud-sync" title="Conexão em Nuvem (Supabase)">
+              <span id="cloud-sync-icon">☁️</span>
+            </button>
             <button id="btn-open-rules" class="header-icon-btn" title="Regras e Tabela Oficial">
               📋
             </button>
@@ -454,6 +457,51 @@
       </div>
     </div>
 
+    <!-- ================= MODAL: CONFIGURAÇÃO SUPABASE ================= -->
+    <div id="modal-supabase-config" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header-row">
+          <h3>Sincronização em Nuvem (Supabase) ☁️</h3>
+          <button class="modal-close-btn" id="btn-close-supabase-modal">&times;</button>
+        </div>
+
+        <div class="supabase-setup-content">
+          <p class="supabase-intro-text">
+            Com o Supabase conectado, as pesagens, ranking e fotos postadas no Mural sincronizam <strong>em tempo real entre todos os celulares</strong>!
+          </p>
+
+          <form id="form-supabase-config" class="modal-form">
+            <div class="form-group">
+              <label for="input-supabase-url">Project URL (Supabase):</label>
+              <input type="url" id="input-supabase-url" placeholder="https://exemplo.supabase.co" required>
+            </div>
+
+            <div class="form-group">
+              <label for="input-supabase-key">Project API Key (Anon / Public):</label>
+              <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1Ni..." required>
+            </div>
+
+            <div id="supabase-status-feedback" class="auth-error-msg"></div>
+
+            <div class="supabase-guide-box">
+              <strong>Como obter em 2 minutos (100% Grátis):</strong>
+              <ol>
+                <li>Crie uma conta gratuita em <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>.</li>
+                <li>Clique em <em>New Project</em> (nomeie como <code>bolao-emagrecimento</code>).</li>
+                <li>Vá no menu <strong>SQL Editor</strong> e cole o código do arquivo <code>schema.sql</code> para criar as tabelas.</li>
+                <li>Copie a <strong>Project URL</strong> e a <strong>anon key</strong> em <em>Settings > API</em> e cole aqui!</li>
+              </ol>
+            </div>
+
+            <div class="modal-actions-row">
+              <button type="button" class="btn-secondary" id="btn-cancel-supabase">Fechar</button>
+              <button type="submit" class="btn-glow-primary">Salvar e Conectar 🚀</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <!-- ================= NOTIFICAÇÃO TOAST COM CELEBRAÇÃO ================= -->
     <div id="toast-notification" class="toast-card">
       <div class="toast-icon-wrap" id="toast-icon">🎉</div>
@@ -465,6 +513,9 @@
 
   </div>
 
+  <!-- Supabase JS SDK (CDN Oficial) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

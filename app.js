@@ -68,6 +68,7 @@ class BolaoApp {
     this.cacheElements();
     this.bindEvents();
     this.renderQuickLoginChips();
+    this.initSupabase();
 
     // Verifica estado de autenticação
     if (this.currentUserId && this.getParticipantById(this.currentUserId)) {
@@ -133,6 +134,138 @@ class BolaoApp {
     return this.getParticipantById(this.currentUserId);
   }
 
+  // ================= SUPABASE CLIENT & REALTIME =================
+  async initSupabase() {
+    const url = localStorage.getItem('bolao_supabase_url') || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url);
+    const key = localStorage.getItem('bolao_supabase_key') || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey);
+
+    if (url && key && window.supabase) {
+      try {
+        this.supabase = window.supabase.createClient(url, key);
+        this.btnCloudSync.classList.add('connected');
+        this.btnCloudSync.title = 'Conectado em Nuvem (Supabase Ativo) ☁️';
+        await this.syncFromSupabase();
+        this.subscribeRealtime();
+      } catch (e) {
+        console.error('Erro na conexão Supabase:', e);
+        this.btnCloudSync.classList.remove('connected');
+      }
+    } else {
+      this.btnCloudSync.classList.remove('connected');
+      this.btnCloudSync.title = 'Clique para conectar em Nuvem (Supabase) ☁️';
+    }
+  }
+
+  openSupabaseModal() {
+    const url = localStorage.getItem('bolao_supabase_url') || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
+    const key = localStorage.getItem('bolao_supabase_key') || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '';
+    this.inputSupabaseUrl.value = url;
+    this.inputSupabaseKey.value = key;
+    this.supabaseStatusFeedback.style.display = 'none';
+    this.modalSupabase.classList.add('active');
+  }
+
+  closeSupabaseModal() {
+    this.modalSupabase.classList.remove('active');
+  }
+
+  async handleSupabaseSubmit(e) {
+    e.preventDefault();
+    const url = this.inputSupabaseUrl.value.trim();
+    const key = this.inputSupabaseKey.value.trim();
+
+    if (!window.supabase) {
+      this.supabaseStatusFeedback.textContent = 'SDK do Supabase ainda carregando. Tente novamente em alguns segundos.';
+      this.supabaseStatusFeedback.style.display = 'block';
+      return;
+    }
+
+    try {
+      const testClient = window.supabase.createClient(url, key);
+      const { data, error } = await testClient.from('participants').select('id').limit(1);
+
+      if (error) {
+        this.supabaseStatusFeedback.textContent = `Atenção: ${error.message} (Lembre-se de rodar o schema.sql no SQL Editor do Supabase!)`;
+        this.supabaseStatusFeedback.style.display = 'block';
+        return;
+      }
+
+      localStorage.setItem('bolao_supabase_url', url);
+      localStorage.setItem('bolao_supabase_key', key);
+      this.supabase = testClient;
+      this.btnCloudSync.classList.add('connected');
+      this.closeSupabaseModal();
+
+      this.showToast('Supabase Conectado! ☁️', 'Os dados agora sincronizam em tempo real entre todos os participantes!');
+      await this.syncFromSupabase();
+      this.subscribeRealtime();
+    } catch (err) {
+      this.supabaseStatusFeedback.textContent = `Falha ao conectar: ${err.message}`;
+      this.supabaseStatusFeedback.style.display = 'block';
+    }
+  }
+
+  async syncFromSupabase() {
+    if (!this.supabase) return;
+    try {
+      const { data: remoteP, error: errP } = await this.supabase.from('participants').select('*');
+      const { data: remoteW, error: errW } = await this.supabase.from('weigh_ins').select('*').order('id', { ascending: true });
+
+      if (!errP && remoteP && remoteP.length > 0) {
+        this.participants = remoteP.map(rp => {
+          const history = (remoteW || [])
+            .filter(w => w.participant_id === rp.id)
+            .map(w => ({ date: w.date, weight: Number(w.weight), note: w.note }));
+
+          return {
+            id: rp.id,
+            username: rp.username,
+            name: rp.name,
+            initialWeight: Number(rp.initial_weight),
+            currentWeight: Number(rp.current_weight),
+            isVip: rp.is_vip,
+            password: rp.password,
+            mustChangePassword: rp.must_change_password,
+            history: history.length > 0 ? history : [{ date: '2026-10-05', weight: Number(rp.initial_weight), note: 'Pesagem Oficial de Início' }]
+          };
+        });
+        this.saveParticipants();
+      }
+
+      const { data: remotePosts, error: errPosts } = await this.supabase.from('posts').select('*').order('created_at', { ascending: false });
+      if (!errPosts && remotePosts && remotePosts.length > 0) {
+        this.posts = remotePosts.map(p => ({
+          id: p.id,
+          authorId: p.author_id,
+          authorName: p.author_name,
+          caption: p.caption,
+          photoType: p.photo_type,
+          customPhoto: p.photo_url,
+          timestamp: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          reactions: p.reactions || { love: 0, fire: 0, clap: 0 }
+        }));
+        this.savePosts();
+      }
+
+      this.updateAllViews();
+    } catch (e) {
+      console.warn('Erro sync Supabase:', e);
+    }
+  }
+
+  subscribeRealtime() {
+    if (!this.supabase) return;
+    try {
+      this.supabase.channel('public_db_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => this.syncFromSupabase())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'weigh_ins' }, () => this.syncFromSupabase())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => this.syncFromSupabase())
+        .subscribe();
+    } catch (e) {
+      console.warn('Erro realtime:', e);
+    }
+  }
+
   // ================= MAPEAMENTO DE ELEMENTOS =================
   cacheElements() {
     // Telas
@@ -161,6 +294,16 @@ class BolaoApp {
     this.headerUserRole = document.getElementById('header-user-role');
     this.btnLogout = document.getElementById('btn-logout');
     this.btnOpenRules = document.getElementById('btn-open-rules');
+    this.btnCloudSync = document.getElementById('btn-cloud-sync');
+
+    // Modal Supabase
+    this.modalSupabase = document.getElementById('modal-supabase-config');
+    this.btnCloseSupabase = document.getElementById('btn-close-supabase-modal');
+    this.btnCancelSupabase = document.getElementById('btn-cancel-supabase');
+    this.formSupabase = document.getElementById('form-supabase-config');
+    this.inputSupabaseUrl = document.getElementById('input-supabase-url');
+    this.inputSupabaseKey = document.getElementById('input-supabase-key');
+    this.supabaseStatusFeedback = document.getElementById('supabase-status-feedback');
 
     // Stats Gerais
     this.statCountdown = document.getElementById('stat-countdown');
@@ -238,8 +381,12 @@ class BolaoApp {
     // Logout
     this.btnLogout.addEventListener('click', () => this.handleLogout());
 
-    // Regras no Header
+    // Regras e Nuvem no Header
     this.btnOpenRules.addEventListener('click', () => this.switchTab('tab-rules'));
+    this.btnCloudSync.addEventListener('click', () => this.openSupabaseModal());
+    this.btnCloseSupabase.addEventListener('click', () => this.closeSupabaseModal());
+    this.btnCancelSupabase.addEventListener('click', () => this.closeSupabaseModal());
+    this.formSupabase.addEventListener('submit', (e) => this.handleSupabaseSubmit(e));
 
     // Navegação de Abas
     this.tabButtons.forEach(btn => {
@@ -381,6 +528,13 @@ class BolaoApp {
     this.pendingFirstAccessUser.password = newPass;
     this.pendingFirstAccessUser.mustChangePassword = false;
     this.saveParticipants();
+
+    if (this.supabase) {
+      this.supabase.from('participants').update({
+        password: newPass,
+        must_change_password: false
+      }).eq('id', this.pendingFirstAccessUser.id).then();
+    }
 
     this.modalFirstAccess.classList.remove('active');
     this.showToast('Senha Cadastrada! 🔒', `Tudo pronto, ${this.pendingFirstAccessUser.name}! Bem-vindo(a) ao app!`);
@@ -591,6 +745,10 @@ class BolaoApp {
       post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
       this.savePosts();
       this.renderFeed();
+
+      if (this.supabase) {
+        this.supabase.from('posts').update({ reactions: post.reactions }).eq('id', postId).then();
+      }
     }
   }
 
@@ -633,6 +791,18 @@ class BolaoApp {
 
     this.posts.unshift(newPost);
     this.savePosts();
+
+    if (this.supabase) {
+      this.supabase.from('posts').insert({
+        author_id: currentUser ? currentUser.id : null,
+        author_name: currentUser ? `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}` : 'Participante',
+        caption,
+        photo_type: photoType,
+        photo_url: this.customUploadedImage || null,
+        reactions: { love: 1, fire: 1, clap: 1 }
+      }).then();
+    }
+
     this.closePostModal();
     this.renderFeed();
     this.switchTab('tab-feed');
@@ -715,6 +885,14 @@ class BolaoApp {
 
     user.password = newPass;
     this.saveParticipants();
+
+    if (this.supabase) {
+      this.supabase.from('participants').update({
+        password: newPass,
+        must_change_password: false
+      }).eq('id', user.id).then();
+    }
+
     this.formChangePassword.reset();
     this.changePassMsg.style.display = 'none';
     this.showToast('Senha Atualizada! 🔑', 'Sua nova senha pessoal foi salva com sucesso.');
@@ -758,6 +936,20 @@ class BolaoApp {
     });
 
     this.saveParticipants();
+
+    if (this.supabase) {
+      this.supabase.from('participants').update({
+        current_weight: newWeight
+      }).eq('id', id).then();
+
+      this.supabase.from('weigh_ins').insert({
+        participant_id: id,
+        weight: newWeight,
+        date: date,
+        note: `Pesagem (${newWeight < previousWeight ? 'Progresso Positivo!' : 'Registro mantido'})`
+      }).then();
+    }
+
     this.closeWeightModal();
     this.updateAllViews();
 

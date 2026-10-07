@@ -460,9 +460,65 @@ body {
   transform: scale(1.06);
 }
 
+.header-icon-btn.cloud-sync {
+  position: relative;
+}
+
+.header-icon-btn.cloud-sync.connected {
+  border-color: #10b981;
+  background: var(--primary-ultralight);
+}
+
+.header-icon-btn.cloud-sync.connected::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  border: 1.5px solid white;
+}
+
 .header-icon-btn.logout:hover {
   background: #fee2e2;
   border-color: #f87171;
+}
+
+/* Supabase Setup Modal Styles */
+.supabase-intro-text {
+  font-size: 0.82rem;
+  color: var(--text-main);
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.supabase-guide-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 10px;
+}
+
+.supabase-guide-box strong {
+  display: block;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.supabase-guide-box ol {
+  padding-left: 18px;
+}
+
+.supabase-guide-box a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 /* Banner de Métricas Vidro Verde */
