@@ -164,6 +164,9 @@
             </div>
           </div>
           <div class="admin-master-quick-btns">
+            <button type="button" class="btn-admin-pill-action crm" id="btn-admin-bar-open-crm" title="Abrir CRM de Controle">
+              📊 CRM
+            </button>
             <button type="button" class="btn-admin-pill-action" id="btn-admin-bar-open-panel" title="Abrir Painel Admin Completo">
               ⚙️ Painel
             </button>
@@ -336,6 +339,79 @@
             </div>
           </div>
         </section>
+
+        <!-- ================= ABA 5: CRM & CONTROLE DE PARTICIPANTES (EXCLUSIVA ADMIN) ================= -->
+        <section id="tab-crm" class="tab-view">
+          <div class="crm-hero-banner">
+            <div class="crm-hero-text">
+              <div class="crm-badge">👑 CRM & CONTROLE MASTER</div>
+              <h2>Painel de Gestão dos Participantes 📊</h2>
+              <p>Monitore pesagens em tempo real, identifique participantes atrasados e dispare cobranças no WhatsApp.</p>
+            </div>
+            <div class="crm-hero-actions">
+              <button type="button" class="btn-crm-action highlight" id="btn-crm-share-bulletin" title="Gerar e compartilhar resumo geral no grupo">
+                <span>📲</span> Boletim WhatsApp
+              </button>
+              <button type="button" class="btn-crm-action" id="btn-crm-add-participant" title="Cadastrar novo participante">
+                <span>➕</span> Novo Aluno
+              </button>
+              <button type="button" class="btn-crm-action" id="btn-crm-export-csv" title="Baixar planilha de dados">
+                <span>📥</span> Exportar CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- Cards de Métricas & Funil do CRM -->
+          <div class="crm-metrics-strip">
+            <div class="crm-metric-card">
+              <span class="crm-metric-icon">👥</span>
+              <div class="crm-metric-body">
+                <strong class="crm-metric-val" id="crm-stat-total">12</strong>
+                <span class="crm-metric-label">Participantes</span>
+              </div>
+            </div>
+            <div class="crm-metric-card success">
+              <span class="crm-metric-icon">🟢</span>
+              <div class="crm-metric-body">
+                <strong class="crm-metric-val text-emerald" id="crm-stat-on-track">--</strong>
+                <span class="crm-metric-label">Pesagens em Dia</span>
+              </div>
+            </div>
+            <div class="crm-metric-card warning">
+              <span class="crm-metric-icon">⚠️</span>
+              <div class="crm-metric-body">
+                <strong class="crm-metric-val text-amber" id="crm-stat-pending">--</strong>
+                <span class="crm-metric-label">Cobrar no Whats</span>
+              </div>
+            </div>
+            <div class="crm-metric-card gold">
+              <span class="crm-metric-icon">⚖️</span>
+              <div class="crm-metric-body">
+                <strong class="crm-metric-val text-gold" id="crm-stat-total-lost">-- kg</strong>
+                <span class="crm-metric-label">Total Eliminado</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Pesquisa e Filtros do CRM -->
+          <div class="crm-controls-panel">
+            <div class="crm-search-box">
+              <span class="crm-search-icon">🔍</span>
+              <input type="text" id="crm-search-input" placeholder="Buscar por nome, usuário ou status...">
+            </div>
+            <div class="crm-filter-pills" id="crm-filter-pills">
+              <button type="button" class="crm-filter-btn active" data-crmfilter="all">Todos (<span id="crm-count-all">12</span>)</button>
+              <button type="button" class="crm-filter-btn" data-crmfilter="pending">⚠️ Pendentes (<span id="crm-count-pending">0</span>)</button>
+              <button type="button" class="crm-filter-btn" data-crmfilter="ontrack">🟢 Em Dia (<span id="crm-count-ontrack">0</span>)</button>
+              <button type="button" class="crm-filter-btn" data-crmfilter="vip">⭐ VIP Panmela</button>
+            </div>
+          </div>
+
+          <!-- Lista de Fichas de Participantes no CRM -->
+          <div class="crm-cards-grid" id="crm-participants-grid">
+            <!-- Renderizado dinamicamente via JS -->
+          </div>
+        </section>
       </main>
 
       <!-- Barra de Navegação Inferior (Mobile Tabs) -->
@@ -347,6 +423,10 @@
         <button class="tab-bar-item" data-tab="tab-feed">
           <span class="tab-bar-icon">🥗</span>
           <span class="tab-bar-label">Mural</span>
+        </button>
+        <button class="tab-bar-item is-admin-tab hidden" id="tab-btn-crm" data-tab="tab-crm">
+          <span class="tab-bar-icon">📊</span>
+          <span class="tab-bar-label">CRM</span>
         </button>
         <button class="tab-bar-item" data-tab="tab-profile">
           <span class="tab-bar-icon">👤</span>
@@ -590,7 +670,8 @@
 
         <!-- Abas do Painel de Admin -->
         <div class="admin-tabs-nav">
-          <button type="button" class="admin-tab-btn active" data-admintab="adm-participants">👥 Participantes</button>
+          <button type="button" class="admin-tab-btn active" data-admintab="adm-crm">📊 CRM</button>
+          <button type="button" class="admin-tab-btn" data-admintab="adm-participants">👥 Participantes</button>
           <button type="button" class="admin-tab-btn" data-admintab="adm-weighins">⚖️ Pesagens</button>
           <button type="button" class="admin-tab-btn" data-admintab="adm-posts">📸 Mural</button>
           <button type="button" class="admin-tab-btn" data-admintab="adm-new">➕ Novo</button>
@@ -599,8 +680,19 @@
 
         <div class="admin-tab-content-area">
           
+          <!-- SUB-ABA CRM NO PAINEL -->
+          <div id="adm-crm" class="admin-tab-pane active">
+            <div class="admin-pane-header">
+              <h4>Status Rápido do Bolão</h4>
+              <button type="button" class="btn-mini-primary" id="btn-admin-modal-open-full-crm">Ver CRM Completo 📊</button>
+            </div>
+            <div id="admin-modal-crm-summary" class="admin-crm-quick-box">
+              <!-- Renderizado dinamicamente via JS -->
+            </div>
+          </div>
+
           <!-- SUB-ABA 1: PARTICIPANTES -->
-          <div id="adm-participants" class="admin-tab-pane active">
+          <div id="adm-participants" class="admin-tab-pane">
             <div class="admin-pane-header">
               <h4>Participantes Cadastrados (<span id="admin-participants-count">12</span>)</h4>
               <button type="button" class="btn-mini-primary" id="btn-admin-go-new">➕ Adicionar</button>

@@ -67,6 +67,8 @@ class BolaoApp {
     this.pendingFirstAccessUser = null;
     this.impersonatedUserId = null;
     this.selectedProfileUserId = null;
+    this.crmFilter = 'all';
+    this.crmSearchQuery = '';
 
     this.cacheElements();
     this.bindEvents();
@@ -425,6 +427,25 @@ class BolaoApp {
     this.btnAdminBarOpenWeight = document.getElementById('btn-admin-bar-open-weight');
     this.postAdminAuthorSelect = document.getElementById('post-admin-author-select');
 
+    // CRM & Central de Controle Master
+    this.tabBtnCrm = document.getElementById('tab-btn-crm');
+    this.btnAdminBarOpenCrm = document.getElementById('btn-admin-bar-open-crm');
+    this.crmParticipantsGrid = document.getElementById('crm-participants-grid');
+    this.crmSearchInput = document.getElementById('crm-search-input');
+    this.crmFilterBtns = document.querySelectorAll('.crm-filter-btn');
+    this.crmStatTotal = document.getElementById('crm-stat-total');
+    this.crmStatOnTrack = document.getElementById('crm-stat-on-track');
+    this.crmStatPending = document.getElementById('crm-stat-pending');
+    this.crmStatTotalLost = document.getElementById('crm-stat-total-lost');
+    this.crmCountAll = document.getElementById('crm-count-all');
+    this.crmCountPending = document.getElementById('crm-count-pending');
+    this.crmCountOntrack = document.getElementById('crm-count-ontrack');
+    this.btnCrmShareBulletin = document.getElementById('btn-crm-share-bulletin');
+    this.btnCrmAddParticipant = document.getElementById('btn-crm-add-participant');
+    this.btnCrmExportCsv = document.getElementById('btn-crm-export-csv');
+    this.btnAdminModalOpenFullCrm = document.getElementById('btn-admin-modal-open-full-crm');
+    this.adminModalCrmSummary = document.getElementById('admin-modal-crm-summary');
+
     // Data padrão de hoje
     const today = new Date().toISOString().split('T')[0];
     this.weightInputDate.value = today;
@@ -454,6 +475,45 @@ class BolaoApp {
     }
     if (this.btnAdminBarOpenWeight) {
       this.btnAdminBarOpenWeight.addEventListener('click', () => this.openWeightModal());
+    }
+    if (this.btnAdminBarOpenCrm) {
+      this.btnAdminBarOpenCrm.addEventListener('click', () => this.switchTab('tab-crm'));
+    }
+
+    // Ações do CRM Master
+    if (this.btnAdminModalOpenFullCrm) {
+      this.btnAdminModalOpenFullCrm.addEventListener('click', () => {
+        this.closeAdminPanel();
+        this.switchTab('tab-crm');
+      });
+    }
+    if (this.crmSearchInput) {
+      this.crmSearchInput.addEventListener('input', (e) => {
+        this.crmSearchQuery = e.target.value.toLowerCase().trim();
+        this.renderCrmView();
+      });
+    }
+    if (this.crmFilterBtns) {
+      this.crmFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          this.crmFilterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this.crmFilter = btn.getAttribute('data-crmfilter');
+          this.renderCrmView();
+        });
+      });
+    }
+    if (this.btnCrmAddParticipant) {
+      this.btnCrmAddParticipant.addEventListener('click', () => {
+        this.openAdminPanel();
+        this.switchAdminTab('adm-new');
+      });
+    }
+    if (this.btnCrmShareBulletin) {
+      this.btnCrmShareBulletin.addEventListener('click', () => this.shareOnWhatsApp());
+    }
+    if (this.btnCrmExportCsv) {
+      this.btnCrmExportCsv.addEventListener('click', () => this.exportCrmCsv());
     }
 
     // Admin Listeners
@@ -735,7 +795,12 @@ class BolaoApp {
   }
 
   updateUserHeader() {
-    if (this.isActualAdmin()) {
+    const isAdmin = this.isActualAdmin();
+    if (this.tabBtnCrm) {
+      this.tabBtnCrm.classList.toggle('hidden', !isAdmin);
+    }
+
+    if (isAdmin) {
       if (this.adminMasterBar) {
         this.adminMasterBar.classList.remove('hidden');
         this.populateAdminImpersonateSelect();
@@ -839,6 +904,8 @@ class BolaoApp {
     this.renderFeed();
     this.renderProfile();
     this.populateParticipantsSelect();
+    this.renderCrmView();
+    this.renderAdminModalCrmSummary();
   }
 
   populateParticipantsSelect() {
@@ -1551,6 +1618,7 @@ class BolaoApp {
   }
 
   renderAdminAll() {
+    this.renderAdminModalCrmSummary();
     this.renderAdminParticipants();
     this.renderAdminWeighins();
     this.renderAdminPosts();
@@ -1843,6 +1911,330 @@ class BolaoApp {
     this.formAdminChangePass.reset();
     this.admChangePassMsg.style.display = 'none';
     this.showToast('Senha de Admin Atualizada! 🔑', 'Nova senha mestre configurada com sucesso.');
+  }
+
+  // ================= CRM & CENTRAL DE CONTROLE =================
+  getCrmParticipantStatus(p) {
+    const history = p.history || [];
+    if (history.length === 0) {
+      return {
+        status: 'pending',
+        badgeClass: 'pending',
+        label: 'Sem pesagem',
+        detail: 'Nenhum registro',
+        daysSince: 99,
+        lastDate: null,
+        lastWeight: p.currentWeight,
+        totalEntries: 0
+      };
+    }
+
+    const lastEntry = history[history.length - 1];
+    const lastDate = new Date(lastEntry.date + 'T00:00:00');
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const diffMs = now - lastDate;
+    const daysSince = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+    // Se tiver apenas 1 pesagem (início) e já passou do dia 06/10, ou se faz 3+ dias sem nova pesagem
+    const isPending = (history.length === 1 && daysSince >= 2) || daysSince >= 4;
+
+    return {
+      status: isPending ? 'pending' : 'ontrack',
+      badgeClass: isPending ? 'pending' : 'ontrack',
+      label: isPending ? `⚠️ Cobrar (${daysSince}d atrás)` : (daysSince === 0 ? '🟢 Pesou hoje' : `🟢 Em dia (${daysSince}d atrás)`),
+      detail: daysSince === 0 ? 'Pesou hoje' : `${daysSince} dia${daysSince > 1 ? 's' : ''} atrás`,
+      daysSince,
+      lastDate: lastEntry.date,
+      lastWeight: lastEntry.weight,
+      totalEntries: history.length
+    };
+  }
+
+  renderCrmView() {
+    if (!this.crmParticipantsGrid) return;
+
+    const sorted = this.getSortedParticipants();
+    let onTrackCount = 0;
+    let pendingCount = 0;
+    let totalLost = 0;
+
+    const evaluated = sorted.map(p => {
+      const crmInfo = this.getCrmParticipantStatus(p);
+      if (crmInfo.status === 'pending') pendingCount++;
+      else onTrackCount++;
+
+      const lost = p.initialWeight - p.currentWeight;
+      if (lost > 0) totalLost += lost;
+
+      return { ...p, crmInfo };
+    });
+
+    // Atualiza KPIs
+    if (this.crmStatTotal) this.crmStatTotal.textContent = this.participants.length;
+    if (this.crmStatOnTrack) this.crmStatOnTrack.textContent = onTrackCount;
+    if (this.crmStatPending) this.crmStatPending.textContent = pendingCount;
+    if (this.crmStatTotalLost) this.crmStatTotalLost.textContent = `${totalLost.toFixed(1)} kg`;
+
+    if (this.crmCountAll) this.crmCountAll.textContent = this.participants.length;
+    if (this.crmCountPending) this.crmCountPending.textContent = pendingCount;
+    if (this.crmCountOntrack) this.crmCountOntrack.textContent = onTrackCount;
+
+    // Filtros
+    let filtered = evaluated;
+    if (this.crmFilter === 'pending') {
+      filtered = filtered.filter(p => p.crmInfo.status === 'pending');
+    } else if (this.crmFilter === 'ontrack') {
+      filtered = filtered.filter(p => p.crmInfo.status === 'ontrack');
+    } else if (this.crmFilter === 'vip') {
+      filtered = filtered.filter(p => p.isVip);
+    }
+
+    if (this.crmSearchQuery) {
+      const q = this.crmSearchQuery;
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        p.username.toLowerCase().includes(q) ||
+        p.crmInfo.label.toLowerCase().includes(q)
+      );
+    }
+
+    if (filtered.length === 0) {
+      this.crmParticipantsGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: white; border-radius: 16px; border: 1px dashed var(--border-light); color: var(--text-muted);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+          <strong style="display: block; font-size: 1rem; color: var(--text-main); margin-bottom: 4px;">Nenhum participante encontrado</strong>
+          <span style="font-size: 0.8rem;">Tente ajustar o termo de busca ou selecione outro filtro acima.</span>
+        </div>
+      `;
+      return;
+    }
+
+    this.crmParticipantsGrid.innerHTML = filtered.map(p => {
+      const isPending = p.crmInfo.status === 'pending';
+      const statusPill = isPending 
+        ? `<span class="crm-status-pill pending">⚠️ Pendente</span>`
+        : `<span class="crm-status-pill ontrack">🟢 Em Dia</span>`;
+
+      const lossClass = p.percentLoss > 0 ? 'green' : (p.percentLoss < 0 ? 'warning' : '');
+      const lossSign = p.percentLoss > 0 ? '-' : (p.percentLoss < 0 ? '+' : '');
+
+      return `
+        <div class="crm-card" id="crm-card-${p.id}">
+          <div class="crm-card-top">
+            <div class="crm-card-user-info">
+              <div class="crm-avatar">${p.name.charAt(0)}</div>
+              <div class="crm-user-details">
+                <h4>
+                  <span>${p.name}</span>
+                  ${p.isVip ? '<span title="Participante VIP">⭐</span>' : ''}
+                </h4>
+                <div class="crm-user-login-meta">
+                  Login: <code>${p.username}</code> • Senha: ${p.mustChangePassword ? '<span style="color:#f59e0b;">Padrão</span>' : '<span style="color:#10b981;">Definida</span>'}
+                </div>
+              </div>
+            </div>
+            ${statusPill}
+          </div>
+
+          <div class="crm-card-data-row">
+            <div class="crm-data-cell">
+              <span class="label">Inicial</span>
+              <strong class="val">${p.initialWeight.toFixed(1)} kg</strong>
+            </div>
+            <div class="crm-data-cell">
+              <span class="label">Atual</span>
+              <strong class="val">${p.currentWeight.toFixed(1)} kg</strong>
+            </div>
+            <div class="crm-data-cell">
+              <span class="label">Evolução</span>
+              <strong class="val ${lossClass}">${lossSign}${Math.abs(p.percentLoss)}%</strong>
+            </div>
+          </div>
+
+          <div class="crm-last-weighin-text">
+            <span>🗓️ Último registro: <strong>${this.formatDate(p.crmInfo.lastDate)}</strong> (${p.crmInfo.detail})</span>
+            <span style="font-size: 0.68rem; color: var(--text-muted);">${p.crmInfo.totalEntries} pesagem(ns)</span>
+          </div>
+
+          <div class="crm-card-actions">
+            <button type="button" class="btn-crm-wa" onclick="app.openCrmWhatsApp('${p.id}')" title="Disparar mensagem no WhatsApp">
+              <span>📲</span>
+              <span>${isPending ? 'Cobrar no Whats' : 'Incentivar no Whats'}</span>
+            </button>
+            <button type="button" class="btn-crm-mini-act" onclick="app.openWeightModalFor('${p.id}')" title="Lançar pesagem rápida">
+              <span>⚖️ + Peso</span>
+            </button>
+            <button type="button" class="btn-crm-mini-act" onclick="app.goToProfile('${p.id}')" title="Ver ficha e linha do tempo">
+              <span>👤 Perfil</span>
+            </button>
+            <button type="button" class="btn-crm-mini-act" onclick="app.openAdminEditModal('${p.id}')" title="Editar dados cadastrais">
+              <span>✏️ Editar</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  openCrmWhatsApp(id) {
+    const p = this.getParticipantById(id);
+    if (!p) return;
+
+    const crmInfo = this.getCrmParticipantStatus(p);
+    const isPending = crmInfo.status === 'pending';
+    const appUrl = 'https://emagree.netlify.app';
+
+    let text = '';
+    if (isPending) {
+      text = 
+        `Olá, *${p.name}*! Tudo bem? Aqui é da coordenação do *Bolão do Emagrecimento* ⚖️✨\n\n` +
+        `Passando para lembrar que já faz *${crmInfo.daysSince} dias* desde sua última pesagem registrada (${this.formatDate(crmInfo.lastDate)}).\n\n` +
+        `🎯 *Seu Peso de Largada:* ${p.initialWeight.toFixed(1)} kg\n` +
+        `📊 *Seu Peso no App:* ${p.currentWeight.toFixed(1)} kg\n\n` +
+        `Vamos atualizar seu peso para manter sua posição no ranking e o grupo focado? 💪\n\n` +
+        `📲 Acesse agora o app: ${appUrl}\n` +
+        `Ou se preferir, pode me responder com o seu peso de hoje por aqui que eu lanço para você! 🥗🔥`;
+    } else {
+      text = 
+        `Parabéns pela dedicação, *${p.name}*! 👏🔥\n\n` +
+        `Suas pesagens no *Bolão do Emagrecimento* estão 100% em dia! O seu peso atual registrado é de *${p.currentWeight.toFixed(1)} kg*.\n\n` +
+        `Continue firme no foco e compartilhando suas vitórias no nosso Mural! ✨🥗\n\n` +
+        `📲 Acompanhe o ranking atualizado: ${appUrl}`;
+    }
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  exportCrmCsv() {
+    const headers = [
+      'ID',
+      'Nome',
+      'Usuario',
+      'VIP',
+      'Status_Pesagem',
+      'Dias_Sem_Pesar',
+      'Ultima_Pesagem_Data',
+      'Ultima_Pesagem_Kg',
+      'Peso_Inicial_Kg',
+      'Peso_Atual_Kg',
+      'Diferenca_Kg',
+      'Percentual_Perda',
+      'Qtd_Registros',
+      'Senha_Padrao'
+    ];
+
+    const rows = this.participants.map(p => {
+      const crmInfo = this.getCrmParticipantStatus(p);
+      const diffKg = Number((p.initialWeight - p.currentWeight).toFixed(2));
+      const percentLoss = Number(((diffKg / p.initialWeight) * 100).toFixed(2));
+
+      return [
+        p.id,
+        `"${p.name.replace(/"/g, '""')}"`,
+        p.username,
+        p.isVip ? 'SIM' : 'NAO',
+        crmInfo.status === 'pending' ? 'PENDENTE' : 'EM_DIA',
+        crmInfo.daysSince,
+        crmInfo.lastDate || '',
+        crmInfo.lastWeight ? crmInfo.lastWeight.toFixed(2) : '',
+        p.initialWeight.toFixed(2),
+        p.currentWeight.toFixed(2),
+        diffKg.toFixed(2),
+        percentLoss.toFixed(2),
+        crmInfo.totalEntries,
+        p.mustChangePassword ? 'SIM' : 'NAO'
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + headers.join(';') + '\n' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+    a.href = url;
+    a.download = `crm-bolao-emagrecimento-${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    this.showToast('Planilha Exportada! 📥', 'O arquivo CSV com todos os dados do CRM foi baixado com sucesso.');
+  }
+
+  renderAdminModalCrmSummary() {
+    if (!this.adminModalCrmSummary) return;
+
+    let pendingList = [];
+    let onTrackCount = 0;
+    let totalLost = 0;
+
+    this.participants.forEach(p => {
+      const crmInfo = this.getCrmParticipantStatus(p);
+      if (crmInfo.status === 'pending') {
+        pendingList.push({ ...p, crmInfo });
+      } else {
+        onTrackCount++;
+      }
+      const lost = p.initialWeight - p.currentWeight;
+      if (lost > 0) totalLost += lost;
+    });
+
+    const pendingCount = pendingList.length;
+
+    let pendingHtml = '';
+    if (pendingCount === 0) {
+      pendingHtml = `
+        <div style="padding: 12px; background: #ecfdf5; border-radius: 12px; color: #065f46; font-size: 0.8rem; text-align: center;">
+          🎉 <strong>Excelente!</strong> Todos os 12 participantes estão com pesagens em dia!
+        </div>
+      `;
+    } else {
+      pendingHtml = `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #b45309;">
+            ⚠️ Participantes que precisam de cobrança no WhatsApp (${pendingCount}):
+          </div>
+          ${pendingList.map(p => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fffbeb; border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 10px;">
+              <div>
+                <strong style="font-size: 0.85rem; color: #0f172a;">${p.name} ${p.isVip ? '⭐' : ''}</strong>
+                <div style="font-size: 0.7rem; color: #92400e;">
+                  ${p.crmInfo.daysSince} dias sem pesar • Atual: ${p.currentWeight.toFixed(1)} kg
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-adm-action" style="background: #25d366; color: white; border: none;" onclick="app.openCrmWhatsApp('${p.id}')">
+                  📲 Whats
+                </button>
+                <button type="button" class="btn-adm-action" onclick="app.openWeightModalFor('${p.id}')">
+                  ⚖️ Pesar
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    this.adminModalCrmSummary.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
+        <div style="background: white; border: 1px solid var(--border-light); padding: 10px; border-radius: 12px; text-align: center;">
+          <span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Participantes</span>
+          <strong style="font-size: 1.1rem; color: var(--text-main);">${this.participants.length}</strong>
+        </div>
+        <div style="background: #ecfdf5; border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: 12px; text-align: center;">
+          <span style="font-size: 0.7rem; color: #065f46; display: block;">Em Dia</span>
+          <strong style="font-size: 1.1rem; color: #059669;">${onTrackCount}</strong>
+        </div>
+        <div style="background: #fffbeb; border: 1px solid rgba(245, 158, 11, 0.4); padding: 10px; border-radius: 12px; text-align: center;">
+          <span style="font-size: 0.7rem; color: #b45309; display: block;">Cobrar</span>
+          <strong style="font-size: 1.1rem; color: #ea580c;">${pendingCount}</strong>
+        </div>
+      </div>
+      ${pendingHtml}
+    `;
   }
 }
 
