@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#064e3b" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Fundo Arredondado -->
+  <rect width="512" height="512" rx="128" fill="url(#grad)" filter="url(#shadow)"/>
+  
+  <!-- Balança / Ícone Estilizado -->
+  <g fill="#ffffff" transform="translate(106, 96) scale(0.6)">
+    <!-- Base e Haste -->
+    <rect x="235" y="100" width="30" height="300" rx="15" fill="#ffffff" opacity="0.95"/>
+    <rect x="150" y="380" width="200" height="30" rx="15" fill="#ffffff"/>
+    
+    <!-- Braço Superior da Balança -->
+    <rect x="70" y="100" width="360" height="24" rx="12" fill="#ffffff"/>
+    <circle cx="250" cy="112" r="28" fill="#ffffff"/>
+    
+    <!-- Prato Esquerdo -->
+    <line x1="100" y1="120" x2="60" y2="230" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+    <line x1="100" y1="120" x2="140" y2="230" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+    <path d="M 40 230 Q 100 270 160 230 Z" fill="#ffffff"/>
+
+    <!-- Prato Direito (mais leve / elevado) -->
+    <line x1="400" y1="110" x2="360" y2="200" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+    <line x1="400" y1="110" x2="440" y2="200" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+    <path d="M 340 200 Q 400 240 460 200 Z" fill="#ffffff"/>
+
+    <!-- Coração Central -->
+    <path d="M 250 50 C 235 25, 200 25, 200 65 C 200 95, 250 120, 250 120 C 250 120, 300 95, 300 65 C 300 25, 265 25, 250 50 Z" fill="#f43f5e"/>
+  </g>
+  
+  <!-- Texto "BOLÃO" sutil inferior -->
+  <text x="256" y="440" text-anchor="middle" font-family="'Outfit', sans-serif" font-size="44" font-weight="900" fill="#ffffff" letter-spacing="4">BOLÃO</text>
+</svg>

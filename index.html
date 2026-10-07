@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bolão do Emagrecimento — Juntos por uma Vida Mais Saudável</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- PWA Meta & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="theme-color" content="#064e3b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+  <!-- Canvas para Confetes de Celebração -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <div id="app-container">
+
+    <!-- ================= TELA DE LOGIN (QUANDO NÃO AUTENTICADO) ================= -->
+    <div id="auth-screen" class="auth-screen">
+      <div class="auth-background-glow"></div>
+      
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="auth-logo-badge">⚖️</div>
+          <h1 class="auth-title">Bolão do Emagrecimento</h1>
+          <p class="auth-tagline">Juntos por uma vida mais saudável! ♡</p>
+        </div>
+
+        <div class="campaign-pill">
+          <span class="pill-dot"></span>
+          <span>Desafio Oficial: 05/10 a 22/12</span>
+        </div>
+
+        <form id="form-login" class="auth-form">
+          <div class="auth-field">
+            <label for="login-username">Seu Usuário ou Nome</label>
+            <div class="input-icon-wrapper">
+              <span class="input-icon">👤</span>
+              <input type="text" id="login-username" placeholder="Ex: panmela, gilmar..." autocomplete="username" required>
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <div class="field-label-row">
+              <label for="login-password">Senha de Acesso</label>
+              <span class="default-pass-hint">Padrão inicial: <strong>123456</strong></span>
+            </div>
+            <div class="input-icon-wrapper">
+              <span class="input-icon">🔑</span>
+              <input type="password" id="login-password" placeholder="Digite sua senha" autocomplete="current-password" required>
+              <button type="button" class="btn-toggle-pass" id="btn-toggle-login-pass" title="Ver senha">👁️</button>
+            </div>
+          </div>
+
+          <div id="login-error-msg" class="auth-error-msg"></div>
+
+          <button type="submit" class="btn-auth-submit" id="btn-login-submit">
+            <span>Entrar no Bolão</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </form>
+
+        <!-- Acesso Rápido para Demonstração / Facilidade -->
+        <div class="quick-access-box">
+          <span class="quick-access-label">Ou escolha seu nome para entrar rápido:</span>
+          <div class="quick-user-chips" id="quick-user-chips">
+            <!-- Gerado via JS com os 12 participantes -->
+          </div>
+        </div>
+
+        <div class="auth-footer-note">
+          🔒 Cada participante possui acesso individual para registrar pesagens e interagir no Mural.
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= APP PRINCIPAL (QUANDO AUTENTICADO) ================= -->
+    <div id="main-app" class="main-app hidden">
+      
+      <!-- Top Bar / Header do App -->
+      <header class="app-header">
+        <div class="header-top-row">
+          <div class="user-greeting-box" id="user-greeting-pill">
+            <div class="user-avatar" id="header-user-avatar">P</div>
+            <div class="user-meta">
+              <span class="user-greeting">Olá, <strong id="header-user-name">Panmela</strong> 👋</span>
+              <span class="user-status-role" id="header-user-role">Participante Oficial</span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button id="btn-open-rules" class="header-icon-btn" title="Regras e Tabela Oficial">
+              📋
+            </button>
+            <button id="btn-logout" class="header-icon-btn logout" title="Sair da conta">
+              🚪
+            </button>
+          </div>
+        </div>
+
+        <!-- Banner com Estatísticas Gerais do Grupo -->
+        <div class="stats-glass-banner">
+          <div class="stat-glass-item">
+            <span class="stat-highlight-val" id="stat-countdown">--</span>
+            <span class="stat-subtext">dias restantes</span>
+          </div>
+          <div class="banner-separator"></div>
+          <div class="stat-glass-item">
+            <span class="stat-highlight-val text-emerald" id="stat-total-lost">0.0 kg</span>
+            <span class="stat-subtext">eliminados juntos</span>
+          </div>
+          <div class="banner-separator"></div>
+          <div class="stat-glass-item">
+            <span class="stat-highlight-val" id="stat-participants-count">12</span>
+            <span class="stat-subtext">participantes</span>
+          </div>
+        </div>
+
+        <!-- Frase Motivacional Fixa -->
+        <div class="motto-strip">
+          <span class="sparkle">✨</span>
+          <span>Disciplina hoje, resultados amanhã!</span>
+          <span class="sparkle">♡</span>
+        </div>
+      </header>
+
+      <!-- Conteúdo das Abas -->
+      <main class="app-content">
+
+        <!-- ================= ABA 1: RANKING ================= -->
+        <section id="tab-ranking" class="tab-view active">
+          
+          <!-- Controles do Ranking -->
+          <div class="ranking-toolbar">
+            <div class="privacy-control">
+              <label class="switch-ui">
+                <input type="checkbox" id="toggle-privacy">
+                <span class="switch-slider"></span>
+                <span class="switch-caption">Ocultar kg</span>
+              </label>
+            </div>
+            
+            <div class="toolbar-btn-group">
+              <button id="btn-share-whatsapp" class="btn-whatsapp-share" title="Compartilhar Boletim no WhatsApp">
+                <span class="btn-icon">📲</span>
+                <span>WhatsApp</span>
+              </button>
+              <button id="btn-open-weight-modal" class="btn-glow-primary">
+                <span class="btn-icon">⚖️</span>
+                <span>Pesagem</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pódio dos 3 Primeiros Colocados -->
+          <div class="podium-wrapper" id="podium-container">
+            <!-- Renderizado dinamicamente via JS -->
+          </div>
+
+          <!-- Lista Completa de Classificação -->
+          <div class="ranking-board">
+            <div class="board-header">
+              <div>
+                <h3 class="board-title">Classificação Geral</h3>
+                <p class="board-subtitle">Ordenado por % de gordura/peso eliminado</p>
+              </div>
+              <span class="live-indicator">
+                <span class="pulse-dot"></span> Ao vivo
+              </span>
+            </div>
+
+            <div class="ranking-rows-container" id="ranking-list">
+              <!-- Linhas do ranking renderizadas via JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ABA 2: MURAL DE VITÓRIAS ================= -->
+        <section id="tab-feed" class="tab-view">
+          <div class="feed-hero-box">
+            <div class="feed-hero-text">
+              <h2>Mural de Vitórias 🥗💪</h2>
+              <p>Compartilhe fotos das refeições, treinos e comemore pequenas vitórias!</p>
+            </div>
+            <button id="btn-open-post-modal" class="btn-feed-action">
+              <span>📸</span> Nova Foto
+            </button>
+          </div>
+
+          <div class="feed-timeline" id="feed-posts">
+            <!-- Posts renderizados dinamicamente via JS -->
+          </div>
+        </section>
+
+        <!-- ================= ABA 3: MEU PERFIL & EVOLUÇÃO ================= -->
+        <section id="tab-profile" class="tab-view">
+          <div class="profile-header-card" id="profile-header-card">
+            <!-- Renderizado via JS -->
+          </div>
+
+          <!-- Card de Troca de Senha / Segurança -->
+          <div class="settings-card">
+            <div class="settings-header">
+              <h3>Segurança da Conta 🔑</h3>
+              <p>Você pode alterar sua senha de acesso a qualquer momento</p>
+            </div>
+            
+            <form id="form-change-password" class="settings-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="change-old-pass">Senha Atual</label>
+                  <input type="password" id="change-old-pass" placeholder="Sua senha atual" required>
+                </div>
+                <div class="form-group">
+                  <label for="change-new-pass">Nova Senha</label>
+                  <input type="password" id="change-new-pass" placeholder="Mínimo 4 caracteres" minlength="4" required>
+                </div>
+              </div>
+              <div id="change-pass-msg" class="auth-error-msg"></div>
+              <button type="submit" class="btn-save-settings">Atualizar Minha Senha</button>
+            </form>
+          </div>
+
+          <!-- Histórico Individual de Pesagens -->
+          <div class="history-card">
+            <div class="history-header">
+              <h3>Minha Linha do Tempo de Pesagens 📈</h3>
+            </div>
+            <div class="history-timeline" id="profile-history-list">
+              <!-- Histórico renderizado via JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ABA 4: REGRAS & TABELA ================= -->
+        <section id="tab-rules" class="tab-view">
+          <div class="rules-container">
+            <h2 class="rules-main-title">Regulamento do Bolão 🏆</h2>
+            
+            <div class="rule-box">
+              <div class="rule-icon-circle">⚖️</div>
+              <div class="rule-body">
+                <h4>Critério Justo: Percentual (%) de Perda</h4>
+                <p>O ranking calcula: <code>((Peso Inicial - Peso Atual) / Peso Inicial) × 100</code>. Desta forma, a disputa é 100% justa e balanceada entre todos os participantes, independente da massa corporal inicial.</p>
+              </div>
+            </div>
+
+            <div class="rule-box">
+              <div class="rule-icon-circle">🔒</div>
+              <div class="rule-body">
+                <h4>Privacidade e Respeito</h4>
+                <p>Ninguém é obrigado a exibir o peso em quilos para todos. Com o modo privacidade ativado, apenas a porcentagem de evolução e a colocação ficam públicas.</p>
+              </div>
+            </div>
+
+            <div class="rule-box">
+              <div class="rule-icon-circle">🗓️</div>
+              <div class="rule-body">
+                <h4>Datas Oficiais</h4>
+                <p><strong>Início:</strong> 05 de outubro de 2026<br><strong>Data Final:</strong> 22 de dezembro de 2026</p>
+              </div>
+            </div>
+
+            <div class="rule-box">
+              <div class="rule-icon-circle">❤️</div>
+              <div class="rule-body">
+                <h4>Incentivo em Equipe</h4>
+                <p>Use o Mural de Vitórias! Curtir, reagir com fogo 🔥 e aplausos 👏 nas marmitas e caminhadas dos colegas mantém o grupo engajado até a reta final.</p>
+              </div>
+            </div>
+
+            <!-- Tabela Fotográfica Original -->
+            <div class="original-table-card">
+              <h3>Tabela Original da Folha de Inscrição</h3>
+              <p>Registro inicial com os 12 participantes e pesos de largada:</p>
+              <div class="table-img-container">
+                <img src="292a8f2a-ceeb-4b8f-818b-2cae53a78ff8.jfif" alt="Tabela Oficial do Bolão" class="table-img" loading="lazy">
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Barra de Navegação Inferior (Mobile Tabs) -->
+      <nav class="bottom-tab-bar">
+        <button class="tab-bar-item active" data-tab="tab-ranking">
+          <span class="tab-bar-icon">🏆</span>
+          <span class="tab-bar-label">Ranking</span>
+        </button>
+        <button class="tab-bar-item" data-tab="tab-feed">
+          <span class="tab-bar-icon">🥗</span>
+          <span class="tab-bar-label">Mural</span>
+        </button>
+        <button class="tab-bar-item" data-tab="tab-profile">
+          <span class="tab-bar-icon">👤</span>
+          <span class="tab-bar-label">Meu Perfil</span>
+        </button>
+        <button class="tab-bar-item" data-tab="tab-rules">
+          <span class="tab-bar-icon">📋</span>
+          <span class="tab-bar-label">Regras</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ================= MODAL: PRIMEIRO ACESSO (TROCA DE SENHA OBRIGATÓRIA) ================= -->
+    <div id="modal-first-access" class="modal-backdrop">
+      <div class="modal-dialog first-access-dialog">
+        <div class="first-access-badge">🔒 Primeiro Acesso</div>
+        <h3>Bem-vindo(a) ao Bolão!</h3>
+        <p class="first-access-desc">
+          Olá, <strong id="first-access-user-name">Participante</strong>! Para garantir a sua privacidade e segurança no registro de pesagens, defina uma nova senha pessoal para a sua conta.
+        </p>
+
+        <form id="form-first-access" class="modal-form">
+          <div class="form-group">
+            <label for="first-access-new-pass">Nova Senha Pessoal</label>
+            <input type="password" id="first-access-new-pass" placeholder="Digite sua nova senha" minlength="4" required>
+          </div>
+
+          <div class="form-group">
+            <label for="first-access-confirm-pass">Confirme a Nova Senha</label>
+            <input type="password" id="first-access-confirm-pass" placeholder="Repita a nova senha" minlength="4" required>
+          </div>
+
+          <div id="first-access-error-msg" class="auth-error-msg"></div>
+
+          <button type="submit" class="btn-glow-primary full-width">
+            Salvar Senha e Acessar o App 🚀
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: REGISTRAR PESAGEM ================= -->
+    <div id="modal-weight" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header-row">
+          <h3>Registrar Nova Pesagem ⚖️</h3>
+          <button class="modal-close-btn" id="btn-close-weight-modal">&times;</button>
+        </div>
+
+        <form id="form-weight" class="modal-form">
+          <div class="form-group">
+            <label for="weight-participant-select">Participante:</label>
+            <select id="weight-participant-select" class="styled-select" required>
+              <!-- Preenchido via JS -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="weight-input-value">Novo Peso Registrado (kg):</label>
+            <div class="weight-input-wrapper">
+              <input type="number" id="weight-input-value" step="0.05" min="40" max="250" placeholder="Ex: 81.20" required>
+              <span class="weight-unit-badge">kg</span>
+            </div>
+            <p class="weight-hint-text" id="weight-hint-text">Selecione o participante.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="weight-input-date">Data da Pesagem:</label>
+            <input type="date" id="weight-input-date" class="styled-date-input" required>
+          </div>
+
+          <div class="modal-actions-row">
+            <button type="button" class="btn-secondary" id="btn-cancel-weight">Cancelar</button>
+            <button type="submit" class="btn-glow-primary">Salvar e Celebrar 🎉</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: POSTAR NO MURAL ================= -->
+    <div id="modal-post" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header-row">
+          <h3>Nova Publicação no Mural 📸</h3>
+          <button class="modal-close-btn" id="btn-close-post-modal">&times;</button>
+        </div>
+
+        <form id="form-post" class="modal-form">
+          <div class="form-group">
+            <label>Publicando como:</label>
+            <div class="posting-as-chip" id="posting-as-chip">
+              <span class="avatar-mini" id="posting-avatar">P</span>
+              <strong id="posting-name">Panmela ⭐</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="post-text-caption">Legenda / Relato da Vitória:</label>
+            <textarea id="post-text-caption" rows="3" placeholder="Ex: Marmitinha saudável na escola hoje! Frango grelhado e muita salada colorida 💪" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Escolha a Foto da Conquista:</label>
+            <div class="photo-choice-grid">
+              <label class="photo-choice-card">
+                <input type="radio" name="post-photo-preset" value="marmita" checked>
+                <div class="choice-content">
+                  <span>🥗</span>
+                  <small>Marmita Fit</small>
+                </div>
+              </label>
+
+              <label class="photo-choice-card">
+                <input type="radio" name="post-photo-preset" value="caminhada">
+                <div class="choice-content">
+                  <span>👟</span>
+                  <small>Caminhada</small>
+                </div>
+              </label>
+
+              <label class="photo-choice-card">
+                <input type="radio" name="post-photo-preset" value="frutas">
+                <div class="choice-content">
+                  <span>🍎</span>
+                  <small>Frutas / Água</small>
+                </div>
+              </label>
+
+              <label class="photo-choice-card">
+                <input type="radio" name="post-photo-preset" value="custom">
+                <div class="choice-content">
+                  <span>📁</span>
+                  <small>Do Celular</small>
+                </div>
+              </label>
+            </div>
+
+            <input type="file" id="post-upload-file" accept="image/*" class="hidden-file-input">
+            
+            <div class="photo-preview-container" id="post-photo-preview">
+              <!-- Preview renderizado dinamicamente -->
+            </div>
+          </div>
+
+          <div class="modal-actions-row">
+            <button type="button" class="btn-secondary" id="btn-cancel-post">Cancelar</button>
+            <button type="submit" class="btn-glow-primary">Publicar Vitória 🚀</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= NOTIFICAÇÃO TOAST COM CELEBRAÇÃO ================= -->
+    <div id="toast-notification" class="toast-card">
+      <div class="toast-icon-wrap" id="toast-icon">🎉</div>
+      <div class="toast-text-wrap">
+        <strong id="toast-title">Parabéns!</strong>
+        <p id="toast-body">Menos peso registrado! O esforço compensa!</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

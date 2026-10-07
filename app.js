@@ -1,0 +1,908 @@
+/**
+ * BOLÃO DO EMAGRECIMENTO — APP & AUTH LOGIC
+ * Desafio Oficial: 05 de Outubro a 22 de Dezembro
+ */
+
+// Configuração dos 12 Participantes Oficiais (com credenciais padrão de primeiro acesso)
+const DEFAULT_PARTICIPANTS = [
+  { id: 'gilmar', username: 'gilmar', name: 'Gilmar', initialWeight: 132.10, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'thiffany', username: 'thiffany', name: 'Thiffany', initialWeight: 97.80, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'estevao', username: 'estevao', name: 'Estevão', initialWeight: 94.40, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'gabi', username: 'gabi', name: 'Gabi', initialWeight: 91.45, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'sonia', username: 'sonia', name: 'Sonia', initialWeight: 89.50, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'solange', username: 'solange', name: 'Solange', initialWeight: 84.50, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'aparecida', username: 'aparecida', name: 'Irmã Aparecida', initialWeight: 84.15, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'dora', username: 'dora', name: 'Irmã Dora', initialWeight: 82.90, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'panmela', username: 'panmela', name: 'Panmela', initialWeight: 82.30, isVip: true, password: '123456', mustChangePassword: true }, // Esposa
+  { id: 'vera', username: 'vera', name: 'Vera', initialWeight: 79.30, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'edna', username: 'edna', name: 'Edna', initialWeight: 77.10, isVip: false, password: '123456', mustChangePassword: true },
+  { id: 'elaine', username: 'elaine', name: 'Elaine', initialWeight: 75.25, isVip: false, password: '123456', mustChangePassword: true }
+];
+
+// Presets de Imagens do Mural
+const PHOTO_PRESETS = {
+  marmita: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80",
+  caminhada: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=600&q=80",
+  frutas: "https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?auto=format&fit=crop&w=600&q=80"
+};
+
+// Posts Iniciais do Mural
+const INITIAL_POSTS = [
+  {
+    id: 1,
+    authorId: 'panmela',
+    authorName: 'Panmela ⭐',
+    caption: 'Marmitinha saudável pronta pra levar pro trabalho! Frango com legumes e bastante salada colorida 🥗✨ Vamos juntas!',
+    photoType: 'marmita',
+    timestamp: 'Hoje, 12:45',
+    reactions: { love: 12, fire: 8, clap: 14 }
+  },
+  {
+    id: 2,
+    authorId: 'gilmar',
+    authorName: 'Gilmar',
+    caption: 'Caminhada de 45 min concluída logo cedo! O importante é a constância. Disciplina hoje, resultados amanhã! 👟🔥',
+    photoType: 'caminhada',
+    timestamp: 'Hoje, 07:10',
+    reactions: { love: 7, fire: 15, clap: 10 }
+  },
+  {
+    id: 3,
+    authorId: 'elaine',
+    authorName: 'Elaine',
+    caption: 'Primeiro dia sem refrigerante e batendo a meta de 2L de água no dia! Pequenas vitórias que contam muito 🍎💧',
+    photoType: 'frutas',
+    timestamp: 'Ontem, 16:30',
+    reactions: { love: 9, fire: 6, clap: 11 }
+  }
+];
+
+class BolaoApp {
+  constructor() {
+    this.participants = this.loadParticipants();
+    this.posts = this.loadPosts();
+    this.currentUserId = localStorage.getItem('bolao_current_user_id') || null;
+    this.privacyMode = JSON.parse(localStorage.getItem('bolao_privacy') || 'false');
+    this.pendingFirstAccessUser = null;
+
+    this.cacheElements();
+    this.bindEvents();
+    this.renderQuickLoginChips();
+
+    // Verifica estado de autenticação
+    if (this.currentUserId && this.getParticipantById(this.currentUserId)) {
+      this.showMainApp();
+    } else {
+      this.showAuthScreen();
+    }
+  }
+
+  // ================= CARGA E PERSISTÊNCIA =================
+  loadParticipants() {
+    const saved = localStorage.getItem('bolao_participants_v2');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    // Estado inicial com peso de largada (05/10)
+    return DEFAULT_PARTICIPANTS.map(p => ({
+      ...p,
+      currentWeight: p.initialWeight,
+      history: [
+        { date: '2026-10-05', weight: p.initialWeight, note: 'Pesagem Oficial de Início' }
+      ]
+    }));
+  }
+
+  saveParticipants() {
+    localStorage.setItem('bolao_participants_v2', JSON.stringify(this.participants));
+  }
+
+  loadPosts() {
+    const saved = localStorage.getItem('bolao_posts_v2');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_POSTS;
+  }
+
+  savePosts() {
+    localStorage.setItem('bolao_posts_v2', JSON.stringify(this.posts));
+  }
+
+  getParticipantById(id) {
+    return this.participants.find(p => p.id === id);
+  }
+
+  getParticipantByUsername(username) {
+    const normalized = username.trim().toLowerCase();
+    return this.participants.find(p => 
+      p.username.toLowerCase() === normalized || 
+      p.name.toLowerCase().includes(normalized)
+    );
+  }
+
+  getCurrentUser() {
+    return this.getParticipantById(this.currentUserId);
+  }
+
+  // ================= MAPEAMENTO DE ELEMENTOS =================
+  cacheElements() {
+    // Telas
+    this.authScreen = document.getElementById('auth-screen');
+    this.mainApp = document.getElementById('main-app');
+
+    // Login
+    this.formLogin = document.getElementById('form-login');
+    this.loginUsername = document.getElementById('login-username');
+    this.loginPassword = document.getElementById('login-password');
+    this.loginErrorMsg = document.getElementById('login-error-msg');
+    this.btnToggleLoginPass = document.getElementById('btn-toggle-login-pass');
+    this.quickUserChips = document.getElementById('quick-user-chips');
+
+    // Modal Primeiro Acesso
+    this.modalFirstAccess = document.getElementById('modal-first-access');
+    this.formFirstAccess = document.getElementById('form-first-access');
+    this.firstAccessUserName = document.getElementById('first-access-user-name');
+    this.firstAccessNewPass = document.getElementById('first-access-new-pass');
+    this.firstAccessConfirmPass = document.getElementById('first-access-confirm-pass');
+    this.firstAccessErrorMsg = document.getElementById('first-access-error-msg');
+
+    // Header & Perfil
+    this.headerUserAvatar = document.getElementById('header-user-avatar');
+    this.headerUserName = document.getElementById('header-user-name');
+    this.headerUserRole = document.getElementById('header-user-role');
+    this.btnLogout = document.getElementById('btn-logout');
+    this.btnOpenRules = document.getElementById('btn-open-rules');
+
+    // Stats Gerais
+    this.statCountdown = document.getElementById('stat-countdown');
+    this.statTotalLost = document.getElementById('stat-total-lost');
+    this.statParticipantsCount = document.getElementById('stat-participants-count');
+
+    // Tabs
+    this.tabButtons = document.querySelectorAll('.bottom-tab-bar .tab-bar-item');
+    this.tabViews = document.querySelectorAll('.tab-view');
+
+    // Ranking
+    this.togglePrivacy = document.getElementById('toggle-privacy');
+    this.togglePrivacy.checked = this.privacyMode;
+    this.podiumContainer = document.getElementById('podium-container');
+    this.rankingList = document.getElementById('ranking-list');
+    this.btnOpenWeightModal = document.getElementById('btn-open-weight-modal');
+    this.btnShareWhatsapp = document.getElementById('btn-share-whatsapp');
+
+    // Modal Pesagem
+    this.modalWeight = document.getElementById('modal-weight');
+    this.btnCloseWeight = document.getElementById('btn-close-weight-modal');
+    this.btnCancelWeight = document.getElementById('btn-cancel-weight');
+    this.formWeight = document.getElementById('form-weight');
+    this.weightParticipantSelect = document.getElementById('weight-participant-select');
+    this.weightInputValue = document.getElementById('weight-input-value');
+    this.weightInputDate = document.getElementById('weight-input-date');
+    this.weightHintText = document.getElementById('weight-hint-text');
+
+    // Feed / Mural
+    this.feedPosts = document.getElementById('feed-posts');
+    this.btnOpenPostModal = document.getElementById('btn-open-post-modal');
+    this.modalPost = document.getElementById('modal-post');
+    this.btnClosePost = document.getElementById('btn-close-post-modal');
+    this.btnCancelPost = document.getElementById('btn-cancel-post');
+    this.formPost = document.getElementById('form-post');
+    this.postingAvatar = document.getElementById('posting-avatar');
+    this.postingName = document.getElementById('posting-name');
+    this.postTextCaption = document.getElementById('post-text-caption');
+    this.postUploadFile = document.getElementById('post-upload-file');
+    this.postPhotoPreview = document.getElementById('post-photo-preview');
+
+    // Aba Meu Perfil
+    this.profileHeaderCard = document.getElementById('profile-header-card');
+    this.profileHistoryList = document.getElementById('profile-history-list');
+    this.formChangePassword = document.getElementById('form-change-password');
+    this.changeOldPass = document.getElementById('change-old-pass');
+    this.changeNewPass = document.getElementById('change-new-pass');
+    this.changePassMsg = document.getElementById('change-pass-msg');
+
+    // Toast & Canvas
+    this.toastNotification = document.getElementById('toast-notification');
+    this.canvas = document.getElementById('confetti-canvas');
+    this.setupConfetti();
+
+    // Data padrão de hoje
+    const today = new Date().toISOString().split('T')[0];
+    this.weightInputDate.value = today;
+  }
+
+  // ================= EVENTOS =================
+  bindEvents() {
+    // Form de Login
+    this.formLogin.addEventListener('submit', (e) => this.handleLogin(e));
+
+    // Ver/Ocultar Senha Login
+    this.btnToggleLoginPass.addEventListener('click', () => {
+      const type = this.loginPassword.type === 'password' ? 'text' : 'password';
+      this.loginPassword.type = type;
+      this.btnToggleLoginPass.textContent = type === 'password' ? '👁️' : '🙈';
+    });
+
+    // Form Primeiro Acesso
+    this.formFirstAccess.addEventListener('submit', (e) => this.handleFirstAccessSubmit(e));
+
+    // Logout
+    this.btnLogout.addEventListener('click', () => this.handleLogout());
+
+    // Regras no Header
+    this.btnOpenRules.addEventListener('click', () => this.switchTab('tab-rules'));
+
+    // Navegação de Abas
+    this.tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        this.switchTab(tab);
+      });
+    });
+
+    // Toggle de Privacidade
+    this.togglePrivacy.addEventListener('change', (e) => {
+      this.privacyMode = e.target.checked;
+      localStorage.setItem('bolao_privacy', JSON.stringify(this.privacyMode));
+      this.renderRanking();
+      this.renderProfile();
+    });
+
+    // Modal de Pesagem
+    this.btnOpenWeightModal.addEventListener('click', () => this.openWeightModal());
+    this.btnShareWhatsapp.addEventListener('click', () => this.shareOnWhatsApp());
+    this.btnCloseWeight.addEventListener('click', () => this.closeWeightModal());
+    this.btnCancelWeight.addEventListener('click', () => this.closeWeightModal());
+    this.formWeight.addEventListener('submit', (e) => this.handleWeightSubmit(e));
+    this.weightParticipantSelect.addEventListener('change', () => this.updateWeightModalHint());
+
+    // Modal de Post
+    this.btnOpenPostModal.addEventListener('click', () => this.openPostModal());
+    this.btnClosePost.addEventListener('click', () => this.closePostModal());
+    this.btnCancelPost.addEventListener('click', () => this.closePostModal());
+    this.formPost.addEventListener('submit', (e) => this.handlePostSubmit(e));
+
+    // Escolha de foto no Post
+    document.querySelectorAll('input[name="post-photo-preset"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+          this.postUploadFile.style.display = 'block';
+          this.postUploadFile.click();
+        } else {
+          this.postUploadFile.style.display = 'none';
+          this.setPostPhotoPreview(PHOTO_PRESETS[e.target.value]);
+        }
+      });
+    });
+
+    this.postUploadFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          this.customUploadedImage = ev.target.result;
+          this.setPostPhotoPreview(this.customUploadedImage);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Troca de Senha na Aba Perfil
+    this.formChangePassword.addEventListener('submit', (e) => this.handleChangePasswordSubmit(e));
+  }
+
+  // ================= SISTEMA DE LOGIN & AUTH =================
+  renderQuickLoginChips() {
+    this.quickUserChips.innerHTML = this.participants.map(p => `
+      <button type="button" class="user-chip-btn ${p.isVip ? 'is-vip' : ''}" onclick="app.quickFillLogin('${p.username}')">
+        <span>${p.name}</span>
+        ${p.isVip ? '⭐' : ''}
+      </button>
+    `).join('');
+  }
+
+  quickFillLogin(username) {
+    this.loginUsername.value = username;
+    const user = this.getParticipantByUsername(username);
+    if (user) {
+      this.loginPassword.value = user.password;
+    } else {
+      this.loginPassword.value = '123456';
+    }
+    this.loginErrorMsg.style.display = 'none';
+  }
+
+  handleLogin(e) {
+    e.preventDefault();
+    const username = this.loginUsername.value.trim();
+    const password = this.loginPassword.value.trim();
+
+    const user = this.getParticipantByUsername(username);
+    if (!user) {
+      this.showLoginError('Participante não encontrado na lista oficial.');
+      return;
+    }
+
+    if (user.password !== password) {
+      this.showLoginError('Senha incorreta. (A senha inicial é 123456)');
+      return;
+    }
+
+    // Se é o primeiro acesso, força a troca de senha
+    if (user.mustChangePassword) {
+      this.openFirstAccessModal(user);
+      return;
+    }
+
+    this.authenticateUser(user.id);
+  }
+
+  showLoginError(msg) {
+    this.loginErrorMsg.textContent = msg;
+    this.loginErrorMsg.style.display = 'block';
+  }
+
+  openFirstAccessModal(user) {
+    this.pendingFirstAccessUser = user;
+    this.firstAccessUserName.textContent = user.name;
+    this.firstAccessNewPass.value = '';
+    this.firstAccessConfirmPass.value = '';
+    this.firstAccessErrorMsg.style.display = 'none';
+    this.modalFirstAccess.classList.add('active');
+  }
+
+  handleFirstAccessSubmit(e) {
+    e.preventDefault();
+    const newPass = this.firstAccessNewPass.value.trim();
+    const confirmPass = this.firstAccessConfirmPass.value.trim();
+
+    if (newPass.length < 4) {
+      this.firstAccessErrorMsg.textContent = 'A nova senha deve ter no mínimo 4 caracteres.';
+      this.firstAccessErrorMsg.style.display = 'block';
+      return;
+    }
+
+    if (newPass !== confirmPass) {
+      this.firstAccessErrorMsg.textContent = 'As senhas não coincidem. Digite novamente.';
+      this.firstAccessErrorMsg.style.display = 'block';
+      return;
+    }
+
+    // Atualiza credencial
+    this.pendingFirstAccessUser.password = newPass;
+    this.pendingFirstAccessUser.mustChangePassword = false;
+    this.saveParticipants();
+
+    this.modalFirstAccess.classList.remove('active');
+    this.showToast('Senha Cadastrada! 🔒', `Tudo pronto, ${this.pendingFirstAccessUser.name}! Bem-vindo(a) ao app!`);
+    
+    this.authenticateUser(this.pendingFirstAccessUser.id);
+    this.pendingFirstAccessUser = null;
+  }
+
+  authenticateUser(userId) {
+    this.currentUserId = userId;
+    localStorage.setItem('bolao_current_user_id', userId);
+    this.showMainApp();
+  }
+
+  handleLogout() {
+    this.currentUserId = null;
+    localStorage.removeItem('bolao_current_user_id');
+    this.showAuthScreen();
+  }
+
+  showAuthScreen() {
+    this.authScreen.classList.remove('hidden');
+    this.mainApp.classList.add('hidden');
+    this.loginUsername.value = '';
+    this.loginPassword.value = '';
+    this.loginErrorMsg.style.display = 'none';
+  }
+
+  showMainApp() {
+    this.authScreen.classList.add('hidden');
+    this.mainApp.classList.remove('hidden');
+    this.updateUserHeader();
+    this.updateAllViews();
+    this.updateCountdown();
+  }
+
+  updateUserHeader() {
+    const user = this.getCurrentUser();
+    if (!user) return;
+    this.headerUserAvatar.textContent = user.name.charAt(0);
+    this.headerUserName.textContent = user.name;
+    this.headerUserRole.textContent = user.isVip ? 'Participante VIP ⭐' : 'Participante Oficial';
+  }
+
+  // ================= NAVEGAÇÃO =================
+  switchTab(tabId) {
+    this.tabButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+    });
+    this.tabViews.forEach(view => {
+      view.classList.toggle('active', view.id === tabId);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  updateCountdown() {
+    const endDate = new Date('2026-12-22T23:59:59');
+    const now = new Date();
+    const diffDays = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+    this.statCountdown.textContent = diffDays;
+  }
+
+  calculateStats() {
+    let totalLostKg = 0;
+    this.participants.forEach(p => {
+      const lost = p.initialWeight - p.currentWeight;
+      if (lost > 0) totalLostKg += lost;
+    });
+    this.statTotalLost.textContent = `${totalLostKg.toFixed(1)} kg`;
+    this.statParticipantsCount.textContent = this.participants.length;
+  }
+
+  getSortedParticipants() {
+    return [...this.participants].map(p => {
+      const diffKg = Number((p.initialWeight - p.currentWeight).toFixed(2));
+      const percentLoss = Number(((diffKg / p.initialWeight) * 100).toFixed(2));
+      return { ...p, diffKg, percentLoss };
+    }).sort((a, b) => b.percentLoss - a.percentLoss);
+  }
+
+  updateAllViews() {
+    this.calculateStats();
+    this.renderRanking();
+    this.renderFeed();
+    this.renderProfile();
+    this.populateParticipantsSelect();
+  }
+
+  populateParticipantsSelect() {
+    const currentUser = this.getCurrentUser();
+    const sorted = [...this.participants].sort((a, b) => a.name.localeCompare(b.name));
+    this.weightParticipantSelect.innerHTML = sorted.map(p => 
+      `<option value="${p.id}" ${currentUser && currentUser.id === p.id ? 'selected' : ''}>${p.name} ${p.isVip ? '⭐' : ''}</option>`
+    ).join('');
+    this.updateWeightModalHint();
+  }
+
+  // ================= RANKING & PÓDIO =================
+  renderRanking() {
+    const sorted = this.getSortedParticipants();
+    const currentUser = this.getCurrentUser();
+
+    // 1. Pódio Top 3
+    const top3 = sorted.slice(0, 3);
+    const medals = ['🥇', '🥈', '🥉'];
+    const styles = ['gold', 'silver', 'bronze'];
+
+    let podiumHtml = '';
+    top3.forEach((p, idx) => {
+      const weightDisplay = this.privacyMode 
+        ? (p.diffKg > 0 ? `-${p.diffKg.toFixed(1)} kg` : '0 kg')
+        : `${p.currentWeight.toFixed(1)} kg`;
+
+      podiumHtml += `
+        <div class="podium-step ${styles[idx]}" onclick="app.goToProfile('${p.id}')">
+          <div class="podium-badge">${medals[idx]}</div>
+          <div class="podium-circle">${p.name.charAt(0)}</div>
+          <div class="podium-participant-name">${p.name} ${p.isVip ? '⭐' : ''}</div>
+          <div class="podium-pct-val">${p.percentLoss > 0 ? '-' : ''}${Math.abs(p.percentLoss)}%</div>
+          <div class="podium-kg-val">${weightDisplay}</div>
+        </div>
+      `;
+    });
+    this.podiumContainer.innerHTML = podiumHtml;
+
+    // 2. Lista Completa de Classificação
+    let listHtml = '';
+    sorted.forEach((p, idx) => {
+      const pos = idx + 1;
+      const isMe = currentUser && currentUser.id === p.id;
+      const initialDisplay = this.privacyMode ? 'Protegido' : `${p.initialWeight.toFixed(1)} kg`;
+      const currentDisplay = this.privacyMode ? 'Protegido' : `${p.currentWeight.toFixed(1)} kg`;
+      const isPositiveLoss = p.percentLoss > 0;
+      const isNegative = p.percentLoss < 0;
+
+      listHtml += `
+        <div class="ranking-row-item ${isMe ? 'is-me' : ''}" onclick="app.goToProfile('${p.id}')">
+          <div class="rank-position-col">${pos}º</div>
+          <div class="rank-details-col">
+            <div class="name-line">
+              <span class="person-name">${p.name}</span>
+              ${p.isVip ? '<span class="vip-pill">⭐ Panmela</span>' : ''}
+              ${isMe ? '<span class="live-indicator">Você</span>' : ''}
+            </div>
+            <div class="stats-line">
+              <span>Início: ${initialDisplay}</span>
+              <span>•</span>
+              <span>Atual: ${currentDisplay}</span>
+            </div>
+          </div>
+          <div class="rank-metrics-col">
+            <div class="pct-metric-val ${isNegative ? 'negative' : ''}">
+              ${isPositiveLoss ? '-' : ''}${Math.abs(p.percentLoss)}%
+            </div>
+            <div class="kg-metric-val">
+              ${isPositiveLoss ? `-${p.diffKg.toFixed(1)} kg` : (p.diffKg < 0 ? `+${Math.abs(p.diffKg).toFixed(1)} kg` : '0.0 kg')}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    this.rankingList.innerHTML = listHtml;
+  }
+
+  goToProfile(id) {
+    this.switchTab('tab-profile');
+  }
+
+  // ================= FEED (MURAL DE VITÓRIAS) =================
+  renderFeed() {
+    this.feedPosts.innerHTML = this.posts.map(post => {
+      const imgUrl = post.customPhoto || PHOTO_PRESETS[post.photoType] || PHOTO_PRESETS.marmita;
+      return `
+        <div class="feed-card-item" id="post-${post.id}">
+          <div class="feed-header-profile">
+            <div class="author-circle">${post.authorName.charAt(0)}</div>
+            <div>
+              <div class="author-title">${post.authorName}</div>
+              <div class="post-timestamp">${post.timestamp}</div>
+            </div>
+          </div>
+          <div class="feed-visual-wrapper">
+            <img src="${imgUrl}" alt="Conquista do dia" loading="lazy">
+          </div>
+          <div class="feed-text-area">
+            <p class="post-caption-copy">${post.caption}</p>
+          </div>
+          <div class="feed-footer-reactions">
+            <button class="btn-reaction-pill" onclick="app.reactPost(${post.id}, 'love')">
+              ❤️ <span>${post.reactions.love || 0}</span>
+            </button>
+            <button class="btn-reaction-pill" onclick="app.reactPost(${post.id}, 'fire')">
+              🔥 <span>${post.reactions.fire || 0}</span>
+            </button>
+            <button class="btn-reaction-pill" onclick="app.reactPost(${post.id}, 'clap')">
+              👏 <span>${post.reactions.clap || 0}</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  reactPost(postId, reactionType) {
+    const post = this.posts.find(p => p.id === postId);
+    if (post) {
+      if (!post.reactions) post.reactions = {};
+      post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
+      this.savePosts();
+      this.renderFeed();
+    }
+  }
+
+  openPostModal() {
+    const currentUser = this.getCurrentUser();
+    if (currentUser) {
+      this.postingAvatar.textContent = currentUser.name.charAt(0);
+      this.postingName.textContent = `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}`;
+    }
+    this.setPostPhotoPreview(PHOTO_PRESETS.marmita);
+    this.modalPost.classList.add('active');
+  }
+
+  closePostModal() {
+    this.modalPost.classList.remove('active');
+    this.formPost.reset();
+    this.customUploadedImage = null;
+  }
+
+  setPostPhotoPreview(url) {
+    this.postPhotoPreview.innerHTML = `<img src="${url}" alt="Preview Foto">`;
+  }
+
+  handlePostSubmit(e) {
+    e.preventDefault();
+    const currentUser = this.getCurrentUser();
+    const caption = this.postTextCaption.value.trim();
+    const photoType = document.querySelector('input[name="post-photo-preset"]:checked').value;
+
+    const newPost = {
+      id: Date.now(),
+      authorId: currentUser ? currentUser.id : 'anon',
+      authorName: currentUser ? `${currentUser.name} ${currentUser.isVip ? '⭐' : ''}` : 'Participante',
+      caption,
+      photoType,
+      customPhoto: this.customUploadedImage || null,
+      timestamp: 'Agora mesmo',
+      reactions: { love: 1, fire: 1, clap: 1 }
+    };
+
+    this.posts.unshift(newPost);
+    this.savePosts();
+    this.closePostModal();
+    this.renderFeed();
+    this.switchTab('tab-feed');
+    this.showToast('Vitória Publicada! 📸', 'Sua foto já está inspirando todos no Mural!');
+  }
+
+  // ================= MEU PERFIL & EVOLUÇÃO =================
+  renderProfile() {
+    const user = this.getCurrentUser();
+    if (!user) return;
+
+    const diffKg = Number((user.initialWeight - user.currentWeight).toFixed(2));
+    const percentLoss = Number(((diffKg / user.initialWeight) * 100).toFixed(2));
+
+    const initialShow = this.privacyMode ? '***' : `${user.initialWeight.toFixed(1)} kg`;
+    const currentShow = this.privacyMode ? '***' : `${user.currentWeight.toFixed(1)} kg`;
+
+    // Achar colocação
+    const sorted = this.getSortedParticipants();
+    const rankPos = sorted.findIndex(p => p.id === user.id) + 1;
+
+    this.profileHeaderCard.innerHTML = `
+      <div class="profile-hero">
+        <div class="profile-avatar-lg">${user.name.charAt(0)}</div>
+        <div class="profile-hero-meta">
+          <h2>${user.name} ${user.isVip ? '⭐' : ''}</h2>
+          <p>${rankPos}º Lugar no Ranking Geral • ${user.isVip ? 'Panmela (VIP)' : 'Participante Oficial'}</p>
+        </div>
+      </div>
+      <div class="profile-stats-grid">
+        <div class="grid-cell">
+          <div class="grid-cell-title">Início</div>
+          <div class="grid-cell-value">${initialShow}</div>
+        </div>
+        <div class="grid-cell">
+          <div class="grid-cell-title">Atual</div>
+          <div class="grid-cell-value">${currentShow}</div>
+        </div>
+        <div class="grid-cell">
+          <div class="grid-cell-title">Eliminado</div>
+          <div class="grid-cell-value highlight-green">${percentLoss > 0 ? '-' : ''}${Math.abs(percentLoss)}%</div>
+        </div>
+      </div>
+    `;
+
+    // Histórico de Pesagens
+    const reversedHistory = [...user.history].reverse();
+    this.profileHistoryList.innerHTML = reversedHistory.map(h => `
+      <div class="history-entry-item">
+        <div>
+          <div class="history-date">${this.formatDate(h.date)}</div>
+          <div class="history-desc">${h.note || 'Pesagem de rotina'}</div>
+        </div>
+        <div class="history-weight-val">
+          ${this.privacyMode ? 'Registrado ✓' : `${h.weight.toFixed(1)} kg`}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  handleChangePasswordSubmit(e) {
+    e.preventDefault();
+    const user = this.getCurrentUser();
+    if (!user) return;
+
+    const oldPass = this.changeOldPass.value.trim();
+    const newPass = this.changeNewPass.value.trim();
+
+    if (user.password !== oldPass) {
+      this.changePassMsg.textContent = 'Senha atual incorreta.';
+      this.changePassMsg.style.display = 'block';
+      return;
+    }
+
+    if (newPass.length < 4) {
+      this.changePassMsg.textContent = 'A nova senha precisa ter pelo menos 4 dígitos.';
+      this.changePassMsg.style.display = 'block';
+      return;
+    }
+
+    user.password = newPass;
+    this.saveParticipants();
+    this.formChangePassword.reset();
+    this.changePassMsg.style.display = 'none';
+    this.showToast('Senha Atualizada! 🔑', 'Sua nova senha pessoal foi salva com sucesso.');
+  }
+
+  // ================= PESAGEM =================
+  openWeightModal() {
+    this.populateParticipantsSelect();
+    this.modalWeight.classList.add('active');
+  }
+
+  closeWeightModal() {
+    this.modalWeight.classList.remove('active');
+    this.formWeight.reset();
+  }
+
+  updateWeightModalHint() {
+    const id = this.weightParticipantSelect.value;
+    const p = this.getParticipantById(id);
+    if (p) {
+      this.weightHintText.textContent = `Último peso: ${p.currentWeight.toFixed(1)} kg (Peso de Início: ${p.initialWeight.toFixed(1)} kg)`;
+      this.weightInputValue.placeholder = p.currentWeight.toFixed(1);
+    }
+  }
+
+  handleWeightSubmit(e) {
+    e.preventDefault();
+    const id = this.weightParticipantSelect.value;
+    const newWeight = parseFloat(this.weightInputValue.value);
+    const date = this.weightInputDate.value;
+
+    const p = this.getParticipantById(id);
+    if (!p) return;
+
+    const previousWeight = p.currentWeight;
+    p.currentWeight = newWeight;
+    p.history.push({
+      date,
+      weight: newWeight,
+      note: `Pesagem de acompanhamento (${newWeight < previousWeight ? 'Progresso Positivo!' : 'Registro mantido'})`
+    });
+
+    this.saveParticipants();
+    this.closeWeightModal();
+    this.updateAllViews();
+
+    if (newWeight < previousWeight) {
+      const lostRecent = (previousWeight - newWeight).toFixed(1);
+      this.celebrateLoss(p.name, lostRecent);
+    } else {
+      this.showToast('Pesagem Registrada! ⚖️', `Peso de ${p.name} atualizado. O foco continua diário!`);
+    }
+  }
+
+  celebrateLoss(name, diff) {
+    this.showToast(`🎉 UAU, ${name}!`, `Menos ${diff} kg na balança! O resultado apareceu, parabéns!`, '🔥');
+    this.triggerConfetti();
+  }
+
+  showToast(title, msg, icon = '🎉') {
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-body').textContent = msg;
+    document.getElementById('toast-icon').textContent = icon;
+    this.toastNotification.classList.add('active');
+
+    setTimeout(() => {
+      this.toastNotification.classList.remove('active');
+    }, 4500);
+  }
+
+  formatDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateStr;
+  }
+
+  // ================= CONFETTI CANVAS ENGINE =================
+  setupConfetti() {
+    this.ctx = this.canvas.getContext('2d');
+    this.particles = [];
+    this.resizeCanvas();
+    window.addEventListener('resize', () => this.resizeCanvas());
+  }
+
+  resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+
+  triggerConfetti() {
+    this.particles = [];
+    const palette = ['#059669', '#10b981', '#34d399', '#f59e0b', '#f43f5e', '#6366f1'];
+    for (let i = 0; i < 95; i++) {
+      this.particles.push({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+        w: Math.random() * 8 + 5,
+        h: Math.random() * 8 + 5,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        vx: (Math.random() - 0.5) * 14,
+        vy: (Math.random() - 0.7) * 16,
+        gravity: 0.35,
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 10
+      });
+    }
+    this.animateConfetti();
+  }
+
+  animateConfetti() {
+    if (this.particles.length === 0) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      return;
+    }
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.particles.forEach((p, idx) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.rotation += p.rotSpeed;
+
+      this.ctx.save();
+      this.ctx.translate(p.x, p.y);
+      this.ctx.rotate((p.rotation * Math.PI) / 180);
+      this.ctx.fillStyle = p.color;
+      this.ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      this.ctx.restore();
+
+      if (p.y > window.innerHeight) {
+        this.particles.splice(idx, 1);
+      }
+    });
+
+    requestAnimationFrame(() => this.animateConfetti());
+  }
+
+  // ================= COMPARTILHAR NO WHATSAPP =================
+  shareOnWhatsApp() {
+    const sorted = this.getSortedParticipants();
+    const top3 = sorted.slice(0, 3);
+    const endDate = new Date('2026-12-22T23:59:59');
+    const diffDays = Math.max(0, Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24)));
+    
+    let totalLostKg = 0;
+    this.participants.forEach(p => {
+      const lost = p.initialWeight - p.currentWeight;
+      if (lost > 0) totalLostKg += lost;
+    });
+
+    const medals = ['🥇 1º Lugar', '🥈 2º Lugar', '🥉 3º Lugar'];
+    let podiumText = '';
+    top3.forEach((p, idx) => {
+      const pctDisplay = p.percentLoss > 0 ? `-${p.percentLoss}%` : '0%';
+      podiumText += `${medals[idx]}: *${p.name}* (${pctDisplay})\n`;
+    });
+
+    const message = 
+      `🏆 *BOLETIM OFICIAL — BOLÃO DO EMAGRECIMENTO* ⚖️\n` +
+      `🗓️ *Período:* 05/10 a 22/12 (Faltam ${diffDays} dias!)\n\n` +
+      `💪 *Resultado Coletivo:* Já eliminamos *${totalLostKg.toFixed(1)} kg* juntos!\n\n` +
+      `👑 *TOP 3 ATUAL (% de evolução):*\n${podiumText}\n` +
+      `✨ _"Disciplina hoje, resultados amanhã! ♡"_\n\n` +
+      `📲 Acesse o app para registrar sua pesagem da semana e compartilhar suas marmitas saudáveis no Mural!`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Bolão do Emagrecimento',
+        text: message
+      }).catch(() => {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+      });
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+    }
+  }
+}
+
+// Inicialização Global & Registro do Service Worker (PWA)
+let app;
+document.addEventListener('DOMContentLoaded', () => {
+  app = new BolaoApp();
+  window.app = app;
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.log('Service Worker não registrado:', err);
+    });
+  }
+});
