@@ -1,10 +1,9 @@
 // =========================================================
 // CONFIGURAÇÃO DO SUPABASE — BOLÃO DO EMAGRECIMENTO
-// Cole aqui a URL e a Anon Key do seu projeto Supabase
-// (ou configure direto pelo app clicando no botão de nuvem ☁️)
+// Conectado ao projeto do Supabase em tempo real
 // =========================================================
 
 window.SUPABASE_CONFIG = {
-  url: '',      // Exemplo: 'https://seusite.supabase.co'
-  anonKey: ''   // Exemplo: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  url: 'https://vmnfblvmimelxgvgejdw.supabase.co',
+  anonKey: 'sb_publishable_-oNG7Hpio5Eq_4v4DMtCEA_bLxDchu7'
 };
