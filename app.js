@@ -2245,7 +2245,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.app = app;
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
+    navigator.serviceWorker.register('./sw.js?v=4.0').then((reg) => {
+      reg.update();
+    }).catch((err) => {
       console.log('Service Worker não registrado:', err);
     });
   }

@@ -1,20 +1,15 @@
-const CACHE_NAME = 'bolao-v1';
+const CACHE_NAME = 'bolao-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './style.css?v=4.0',
+  './app.js?v=4.0',
   './manifest.json',
   './icon.svg',
   './292a8f2a-ceeb-4b8f-818b-2cae53a78ff8.jfif'
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -33,10 +28,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network-First: Sempre tenta buscar a versão mais recente do Netlify
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });
